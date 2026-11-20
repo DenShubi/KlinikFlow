@@ -54,11 +54,12 @@ export const getStaff = cache(async (): Promise<Staff | null> => {
 });
 
 // Use at the top of every staff page and Server Action. Sends visitors without
-// a staff session to /login, and staff with another role to their own home.
+// a staff session to /login, and staff whose role is not listed to their own
+// home. With no roles listed, any staff member passes.
 // Row-level security enforces the same rules in the database.
-export async function requireStaff(role: AppRole): Promise<Staff> {
+export async function requireStaff(...roles: AppRole[]): Promise<Staff> {
   const staff = await getStaff();
   if (!staff) redirect("/login");
-  if (staff.role !== role) redirect(ROLE_HOME[staff.role]);
+  if (roles.length > 0 && !roles.includes(staff.role)) redirect(ROLE_HOME[staff.role]);
   return staff;
 }

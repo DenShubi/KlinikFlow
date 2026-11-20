@@ -313,6 +313,246 @@ export type Database = {
     }
     Functions: {
       clinic_today: { Args: never; Returns: string }
+      queue_call_next: {
+        Args: { p_doctor_id: string; p_service_date?: string }
+        Returns: {
+          actual_minutes: number | null
+          ai_summary: string | null
+          called_at: string | null
+          channel: Database["public"]["Enums"]["ticket_channel"]
+          checked_in_at: string | null
+          complaint: string
+          created_at: string
+          created_by: string | null
+          defer_count: number
+          doctor_id: string
+          ended_at: string | null
+          estimated_call_at: string | null
+          id: string
+          is_follow_up: boolean
+          patient_id: string
+          position: number
+          predicted_minutes: number | null
+          prediction_confidence: number | null
+          prediction_model: string | null
+          prediction_source:
+            | Database["public"]["Enums"]["prediction_source"]
+            | null
+          service_date: string
+          started_at: string | null
+          status: Database["public"]["Enums"]["ticket_status"]
+          ticket_number: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "queue_tickets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      queue_cancel_ticket: {
+        Args: { p_reason?: string; p_ticket_id: string }
+        Returns: {
+          actual_minutes: number | null
+          ai_summary: string | null
+          called_at: string | null
+          channel: Database["public"]["Enums"]["ticket_channel"]
+          checked_in_at: string | null
+          complaint: string
+          created_at: string
+          created_by: string | null
+          defer_count: number
+          doctor_id: string
+          ended_at: string | null
+          estimated_call_at: string | null
+          id: string
+          is_follow_up: boolean
+          patient_id: string
+          position: number
+          predicted_minutes: number | null
+          prediction_confidence: number | null
+          prediction_model: string | null
+          prediction_source:
+            | Database["public"]["Enums"]["prediction_source"]
+            | null
+          service_date: string
+          started_at: string | null
+          status: Database["public"]["Enums"]["ticket_status"]
+          ticket_number: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "queue_tickets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      queue_check_in: {
+        Args: { p_ticket_id: string }
+        Returns: {
+          actual_minutes: number | null
+          ai_summary: string | null
+          called_at: string | null
+          channel: Database["public"]["Enums"]["ticket_channel"]
+          checked_in_at: string | null
+          complaint: string
+          created_at: string
+          created_by: string | null
+          defer_count: number
+          doctor_id: string
+          ended_at: string | null
+          estimated_call_at: string | null
+          id: string
+          is_follow_up: boolean
+          patient_id: string
+          position: number
+          predicted_minutes: number | null
+          prediction_confidence: number | null
+          prediction_model: string | null
+          prediction_source:
+            | Database["public"]["Enums"]["prediction_source"]
+            | null
+          service_date: string
+          started_at: string | null
+          status: Database["public"]["Enums"]["ticket_status"]
+          ticket_number: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "queue_tickets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      queue_create_ticket: {
+        Args: {
+          p_ai_summary?: string
+          p_channel: Database["public"]["Enums"]["ticket_channel"]
+          p_complaint: string
+          p_doctor_id: string
+          p_is_follow_up?: boolean
+          p_patient_id: string
+          p_predicted_minutes?: number
+          p_prediction_confidence?: number
+          p_prediction_model?: string
+          p_prediction_source?: Database["public"]["Enums"]["prediction_source"]
+          p_service_date?: string
+        }
+        Returns: {
+          actual_minutes: number | null
+          ai_summary: string | null
+          called_at: string | null
+          channel: Database["public"]["Enums"]["ticket_channel"]
+          checked_in_at: string | null
+          complaint: string
+          created_at: string
+          created_by: string | null
+          defer_count: number
+          doctor_id: string
+          ended_at: string | null
+          estimated_call_at: string | null
+          id: string
+          is_follow_up: boolean
+          patient_id: string
+          position: number
+          predicted_minutes: number | null
+          prediction_confidence: number | null
+          prediction_model: string | null
+          prediction_source:
+            | Database["public"]["Enums"]["prediction_source"]
+            | null
+          service_date: string
+          started_at: string | null
+          status: Database["public"]["Enums"]["ticket_status"]
+          ticket_number: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "queue_tickets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      queue_finish_consultation: {
+        Args: { p_ticket_id: string }
+        Returns: {
+          actual_minutes: number | null
+          ai_summary: string | null
+          called_at: string | null
+          channel: Database["public"]["Enums"]["ticket_channel"]
+          checked_in_at: string | null
+          complaint: string
+          created_at: string
+          created_by: string | null
+          defer_count: number
+          doctor_id: string
+          ended_at: string | null
+          estimated_call_at: string | null
+          id: string
+          is_follow_up: boolean
+          patient_id: string
+          position: number
+          predicted_minutes: number | null
+          prediction_confidence: number | null
+          prediction_model: string | null
+          prediction_source:
+            | Database["public"]["Enums"]["prediction_source"]
+            | null
+          service_date: string
+          started_at: string | null
+          status: Database["public"]["Enums"]["ticket_status"]
+          ticket_number: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "queue_tickets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      queue_start_consultation: {
+        Args: { p_ticket_id: string }
+        Returns: {
+          actual_minutes: number | null
+          ai_summary: string | null
+          called_at: string | null
+          channel: Database["public"]["Enums"]["ticket_channel"]
+          checked_in_at: string | null
+          complaint: string
+          created_at: string
+          created_by: string | null
+          defer_count: number
+          doctor_id: string
+          ended_at: string | null
+          estimated_call_at: string | null
+          id: string
+          is_follow_up: boolean
+          patient_id: string
+          position: number
+          predicted_minutes: number | null
+          prediction_confidence: number | null
+          prediction_model: string | null
+          prediction_source:
+            | Database["public"]["Enums"]["prediction_source"]
+            | null
+          service_date: string
+          started_at: string | null
+          status: Database["public"]["Enums"]["ticket_status"]
+          ticket_number: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "queue_tickets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
       app_role: "receptionist" | "doctor"

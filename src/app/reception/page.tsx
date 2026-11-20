@@ -1,11 +1,16 @@
 import type { Metadata } from "next";
 
 import { EstimateSourceBadge } from "@/components/ai";
+import { ActionButton } from "@/components/queue/action-button";
+import { LiveRefresh } from "@/components/queue/live-refresh";
 import { StaffHeader } from "@/components/staff-header";
 import { requireStaff } from "@/lib/auth/dal";
-import { clinicToday, formatClinicTime } from "@/lib/clinic-time";
+import { clinicToday, formatClinicTime, minutesUntil } from "@/lib/clinic-time";
+import { cancelTicket, checkIn } from "@/lib/queue/actions";
 import { TICKET_CHANNEL_LABEL, TICKET_STATUS_LABEL, ticketCode } from "@/lib/queue/labels";
 import { createClient } from "@/lib/supabase/server";
+
+import { NewTicketForm } from "./new-ticket-form";
 
 export const metadata: Metadata = {
   title: "Resepsionis · KlinikFlow",
@@ -32,8 +37,13 @@ export default async function ReceptionPage() {
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-6 py-10">
       <StaffHeader staff={staff} title="Antrean hari ini" />
+      <LiveRefresh serviceDate={today} />
 
       {error ? <p className="text-red-700 dark:text-red-400">Gagal memuat antrean: {error.message}</p> : null}
+
+      <NewTicketForm
+        doctors={(doctors ?? []).map((d) => ({ id: d.id, label: `${d.ticket_prefix} · ${d.full_name} (${d.room})` }))}
+      />
 
       {doctors?.map((doctor) => {
         const queue = tickets?.filter((t) => t.doctor_id === doctor.id) ?? [];
@@ -59,6 +69,9 @@ export default async function ReceptionPage() {
                     <th className="px-3 py-2 font-medium">Status</th>
                     <th className="px-3 py-2 font-medium">Estimasi</th>
                     <th className="px-3 py-2 font-medium">Perkiraan dipanggil</th>
+                    <th className="px-3 py-2 font-medium">
+                      <span className="sr-only">Aksi</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
@@ -85,12 +98,31 @@ export default async function ReceptionPage() {
                           {t.prediction_source ? <EstimateSourceBadge source={t.prediction_source} compact /> : null}
                         </span>
                       </td>
-                      <td className="px-3 py-2">{t.status === "waiting" ? formatClinicTime(t.estimated_call_at) : "–"}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {t.status === "waiting" ? (
+                          <>
+                            {formatClinicTime(t.estimated_call_at)}{" "}
+                            <span className="text-zinc-500">(±{minutesUntil(t.estimated_call_at)} mnt)</span>
+                          </>
+                        ) : (
+                          "–"
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex flex-wrap justify-end gap-2">
+                          {t.channel === "remote" && !t.checked_in_at && (t.status === "waiting" || t.status === "called") ? (
+                            <ActionButton action={checkIn.bind(null, t.id)} label="Tiba" size="sm" variant="secondary" />
+                          ) : null}
+                          {t.status === "waiting" || t.status === "called" ? (
+                            <ActionButton action={cancelTicket.bind(null, t.id)} label="Batalkan" size="sm" variant="danger" />
+                          ) : null}
+                        </div>
+                      </td>
                     </tr>
                   ))}
                   {queue.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-3 py-4 text-zinc-500">
+                      <td colSpan={8} className="px-3 py-4 text-zinc-500">
                         Belum ada tiket hari ini.
                       </td>
                     </tr>

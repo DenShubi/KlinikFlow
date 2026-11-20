@@ -10,8 +10,10 @@ one function, `estimateConsultation`, and the duration fields in the schema.
 ## 1. `estimateConsultation`
 
 Server-side only (the Gemini key never reaches the browser). The queue engine
-calls it when a ticket joins the queue; until integration (26 Nov) a stub
-returns the fallback.
+calls it when a ticket joins the queue, through `estimateForQueue` in
+`src/lib/queue/estimator.ts`. Until integration (26 Nov) that is a stub
+returning the fallback; integration replaces its body with
+`return estimateConsultation(input);`.
 
 ```ts
 type EstimateInput = {

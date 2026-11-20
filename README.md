@@ -152,9 +152,41 @@ can read nothing.
 ```bash
 npm run test:rls    # signs in as each role and checks what the database returns
 npm run test:auth   # with npm run dev running: checks which pages each role can open
+npm run test:queue  # runs the whole queue flow and checks Realtime per role
 ```
 
-Both read only; the write checks are attempts that must be refused.
+`test:rls` and `test:auth` only read; their write checks are attempts that must
+be refused. `test:queue` works on a test date (1 January 2099) and deletes
+everything it created, so today's queue is not touched.
+
+## Queue engine
+
+Every queue change goes through a database function
+([`queue_engine` migration](supabase/migrations/20261120111527_queue_engine.sql)),
+so ticket numbers, positions, events and wait estimates stay consistent even
+when two people click at the same moment.
+
+| Function | Who | What it does |
+| --- | --- | --- |
+| `queue_create_ticket` | Receptionist, server | Adds a ticket at the end of a doctor's queue with the next ticket number |
+| `queue_check_in` | Staff | Marks a remote patient as arrived |
+| `queue_call_next` | Doctor (own queue), receptionist | Calls the next patient in line who is at the clinic; remote patients who have not arrived keep their place |
+| `queue_start_consultation` | Doctor, receptionist | The called patient is with the doctor |
+| `queue_finish_consultation` | Doctor, receptionist | Ends the consultation; `actual_minutes` is saved |
+| `queue_cancel_ticket` | Doctor, receptionist | Removes a waiting or called ticket |
+
+**Wait estimate.** After every change, each waiting patient's
+`estimated_call_at` is recalculated: the remaining time of the current
+consultation plus the predicted minutes of everyone ahead of them. Predictions
+come from the consultation estimator when the ticket is created
+([`src/lib/queue/estimator.ts`](src/lib/queue/estimator.ts)); it currently
+returns the default length (`QUEUE_FALLBACK_CONSULT_MINUTES`) until the AI
+estimator is connected.
+
+**Live updates.** The reception and doctor pages subscribe to changes in
+`queue_tickets` through Supabase Realtime and re-render when anything changes,
+so every open window shows the same queue. Realtime applies the same
+row-level security, so a doctor only receives changes to their own queue.
 
 ## Database
 
@@ -231,6 +263,7 @@ build time, so set them before running `npm run build` or deploying.
 | `npm run staff:seed` | Create or update the demo staff accounts |
 | `npm run test:rls` | Check row-level security for each role against the database |
 | `npm run test:auth` | Check which staff pages each role can open (needs `npm run dev`) |
+| `npm run test:queue` | Run the whole queue flow against the database and check Realtime |
 
 ## Project structure
 
@@ -239,6 +272,8 @@ src/app/            pages and API routes
 src/lib/env.ts      reads environment variables
 src/lib/supabase/   Supabase clients and generated database types
 src/lib/auth/       sign-in, sign-out and role checks for staff pages
+src/lib/queue/      queue actions, estimator entry point and labels
+src/components/     shared UI, including live queue updates
 src/lib/ai/         consultation length estimator (Gemini)
 src/proxy.ts        runs before each request, keeps the sign-in session fresh
                     and sends signed-out visitors away from staff pages

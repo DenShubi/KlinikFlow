@@ -7,6 +7,13 @@ export function clinicToday(now: Date = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: CLINIC_TIME_ZONE }).format(now);
 }
 
+// Minutes from now until an estimated time, for "about N minutes" labels.
+// Call only at request time (after connection() or a session check).
+export function minutesUntil(value: string | null | undefined, now: number = Date.now()): number | null {
+  if (!value) return null;
+  return Math.max(0, Math.round((new Date(value).getTime() - now) / 60000));
+}
+
 // "09.41" style time in the clinic time zone.
 export function formatClinicTime(value: string | null | undefined): string {
   if (!value) return "–";
