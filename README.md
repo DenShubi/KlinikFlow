@@ -73,12 +73,12 @@ Pick **one** of the two options.
 
 3. In the dashboard, open **Project Settings → API Keys**. Copy the Project
    URL, the publishable key and the secret key into `.env.local`.
-4. Apply the database migrations:
+4. Apply the database migrations and load the synthetic seed data:
 
    ```bash
    npx supabase login
    npx supabase link --project-ref <your-project-ref>
-   npm run db:push
+   npx supabase db push --remote --include-seed
    ```
 
 **Option B: local Supabase (Docker)**
@@ -107,6 +107,37 @@ npm run dev
 Open <http://localhost:3000>. The home page shows whether the app can reach
 Supabase. The same check is available as JSON at `/api/health` (HTTP 200 when
 connected, 503 when not).
+
+## Database
+
+The schema lives in [`supabase/migrations`](supabase/migrations) and the
+synthetic data in [`supabase/seed.sql`](supabase/seed.sql).
+
+| Table | Holds |
+| --- | --- |
+| `doctors` | Doctors who run a queue, each with a ticket letter (A, B, C) |
+| `patients` | Patients and their WhatsApp numbers |
+| `queue_tickets` | One row per visit: queue position, walk-in or remote, status, predicted and actual consultation length |
+| `queue_events` | History of every queue change (created, checked in, called, deferred, ...) |
+| `notifications` | WhatsApp messages sent or queued |
+| `profiles` | Staff logins and their role (receptionist or doctor) |
+
+Every table has row-level security enabled.
+
+### Seed data
+
+The seed creates 3 doctors, 80 patients, about two weeks of finished visits
+(with predicted and actual consultation lengths) and a live queue for the day
+the seed runs. Seed phone numbers use the `+62 800` prefix, which is not a
+mobile range, so no real person can receive messages from seed data.
+
+Today's queue is generated relative to the time the seed runs. To refresh it
+before a demo, rebuild the database. **This deletes all data** in that database:
+
+```bash
+npm run db:reset                  # local stack
+npx supabase db reset --remote    # hosted project
+```
 
 ## Environment variables
 
@@ -144,14 +175,16 @@ build time, so set them before running `npm run build` or deploying.
 | `npm run db:status` | Show the local Supabase URL and keys |
 | `npm run db:reset` | Rebuild the local database from migrations and seed data |
 | `npm run db:new <name>` | Create a new migration file |
-| `npm run db:push` | Apply migrations to the linked hosted project |
+| `npm run db:push` | Apply new migrations to the linked hosted project |
+| `npm run db:types` | Regenerate TypeScript types from the hosted database schema |
 
 ## Project structure
 
 ```
 src/app/            pages and API routes
 src/lib/env.ts      reads environment variables
-src/lib/supabase/   Supabase clients for the browser, server and proxy
+src/lib/supabase/   Supabase clients and generated database types
+src/lib/ai/         consultation length estimator (Gemini)
 src/proxy.ts        runs before each request and keeps the sign-in session fresh
 supabase/           Supabase configuration, migrations and seed data
 docs/CONTRACT.md    interface between the queue and the estimation module
