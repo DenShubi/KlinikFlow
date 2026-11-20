@@ -81,6 +81,10 @@ Pick **one** of the two options.
    npx supabase db push --remote --include-seed
    ```
 
+5. In the dashboard, open **Authentication → Sign In / Providers** and turn
+   off **Allow new users to sign up**. Staff accounts are created by script
+   only (see [Staff accounts](#staff-accounts-and-roles)).
+
 **Option B: local Supabase (Docker)**
 
 1. Start Docker Desktop.
@@ -98,7 +102,15 @@ Pick **one** of the two options.
    npm run db:status
    ```
 
-### 3. Start the app
+### 3. Create the staff accounts
+
+Set `DEMO_STAFF_PASSWORD` in `.env.local` (at least 10 characters), then:
+
+```bash
+npm run staff:seed
+```
+
+### 4. Start the app
 
 ```bash
 npm run dev
@@ -106,7 +118,43 @@ npm run dev
 
 Open <http://localhost:3000>. The home page shows whether the app can reach
 Supabase. The same check is available as JSON at `/api/health` (HTTP 200 when
-connected, 503 when not).
+connected, 503 when not). Staff sign in at <http://localhost:3000/login>.
+
+## Staff accounts and roles
+
+Only clinic staff sign in; patients never need an account. Each login has one
+role, stored in the `profiles` table, which only trusted server code can change.
+
+| Role | Signs in to | Can see | Can change |
+| --- | --- | --- | --- |
+| Receptionist | `/reception` | Every doctor's queue, all patients with WhatsApp numbers, sent messages | Add and edit patients and tickets |
+| Doctor | `/doctor` | Only their own queue and the patients in it, with complaints and AI summaries | Only tickets in their own queue |
+
+The rules are enforced three times: the proxy sends signed-out visitors to
+`/login`, each page checks the role (`src/lib/auth/dal.ts`), and row-level
+security in the database
+([`auth_rls` migration](supabase/migrations/20261120105530_auth_rls.sql))
+decides which rows each role can read or write. Visitors who are not signed in
+can read nothing.
+
+`npm run staff:seed` creates these demo accounts, all with the password in
+`DEMO_STAFF_PASSWORD`:
+
+| Email | Role |
+| --- | --- |
+| `resepsionis@klinikflow.test` | Receptionist |
+| `dokter.a@klinikflow.test` | Doctor, queue A (dr. Larasati Wibowo) |
+| `dokter.b@klinikflow.test` | Doctor, queue B (dr. Hendra Kusuma) |
+| `dokter.c@klinikflow.test` | Doctor, queue C (dr. Maya Sitompul) |
+
+### Checking access rules
+
+```bash
+npm run test:rls    # signs in as each role and checks what the database returns
+npm run test:auth   # with npm run dev running: checks which pages each role can open
+```
+
+Both read only; the write checks are attempts that must be refused.
 
 ## Database
 
@@ -122,7 +170,8 @@ synthetic data in [`supabase/seed.sql`](supabase/seed.sql).
 | `notifications` | WhatsApp messages sent or queued |
 | `profiles` | Staff logins and their role (receptionist or doctor) |
 
-Every table has row-level security enabled.
+Every table has row-level security enabled; see
+[Staff accounts and roles](#staff-accounts-and-roles) for who can see what.
 
 ### Seed data
 
@@ -137,6 +186,7 @@ before a demo, rebuild the database. **This deletes all data** in that database:
 ```bash
 npm run db:reset                  # local stack
 npx supabase db reset --remote    # hosted project
+npm run staff:seed                # then restore the staff accounts and their roles
 ```
 
 ## Environment variables
@@ -150,6 +200,7 @@ tokens.
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | no |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Browser and server access, limited by row-level security | no |
 | `SUPABASE_SECRET_KEY` | Trusted server tasks such as seeding and webhooks; bypasses row-level security | **yes** |
+| `DEMO_STAFF_PASSWORD` | Password given to the demo staff accounts by `npm run staff:seed` | **yes** |
 | `NEXT_PUBLIC_APP_URL` | Base URL used in links and auth redirects | no |
 | `GEMINI_API_KEY` | Consultation estimates | **yes** |
 | `GEMINI_MODEL` | Gemini model used for estimates | no |
@@ -177,6 +228,9 @@ build time, so set them before running `npm run build` or deploying.
 | `npm run db:new <name>` | Create a new migration file |
 | `npm run db:push` | Apply new migrations to the linked hosted project |
 | `npm run db:types` | Regenerate TypeScript types from the hosted database schema |
+| `npm run staff:seed` | Create or update the demo staff accounts |
+| `npm run test:rls` | Check row-level security for each role against the database |
+| `npm run test:auth` | Check which staff pages each role can open (needs `npm run dev`) |
 
 ## Project structure
 
@@ -184,8 +238,11 @@ build time, so set them before running `npm run build` or deploying.
 src/app/            pages and API routes
 src/lib/env.ts      reads environment variables
 src/lib/supabase/   Supabase clients and generated database types
+src/lib/auth/       sign-in, sign-out and role checks for staff pages
 src/lib/ai/         consultation length estimator (Gemini)
-src/proxy.ts        runs before each request and keeps the sign-in session fresh
+src/proxy.ts        runs before each request, keeps the sign-in session fresh
+                    and sends signed-out visitors away from staff pages
+scripts/            staff account setup and access-rule checks
 supabase/           Supabase configuration, migrations and seed data
 docs/CONTRACT.md    interface between the queue and the estimation module
 ```

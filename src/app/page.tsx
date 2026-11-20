@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
 
@@ -11,6 +12,12 @@ export default function Home() {
         <p className="text-zinc-600 dark:text-zinc-400">
           Hybrid clinic queue: walk-in and remote patients in one line.
         </p>
+        <Link
+          href="/login"
+          className="mt-2 w-fit rounded-md bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+        >
+          Masuk staf
+        </Link>
       </header>
 
       <section className="rounded-lg border border-zinc-200 p-5 dark:border-zinc-800">
