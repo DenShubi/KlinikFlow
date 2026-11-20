@@ -2,27 +2,24 @@ import type { Metadata } from "next";
 
 import { DoctorSummaryCard, EstimateSourceBadge } from "@/components/ai";
 import { ActionButton } from "@/components/queue/action-button";
+import { ElapsedTimer } from "@/components/queue/elapsed-timer";
 import { LiveRefresh } from "@/components/queue/live-refresh";
 import { StaffHeader } from "@/components/staff-header";
+import { ageInYears } from "@/lib/age";
 import { requireStaff } from "@/lib/auth/dal";
-import { clinicToday, minutesUntil } from "@/lib/clinic-time";
+import { clinicToday, formatClinicTime, minutesUntil } from "@/lib/clinic-time";
 import { callNext, finishConsultation, startConsultation } from "@/lib/queue/actions";
-import { TICKET_STATUS_LABEL, ticketCode } from "@/lib/queue/labels";
+import { ticketCode } from "@/lib/queue/labels";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: "Dokter · KlinikFlow",
 };
 
-function ageInYears(birthDate: string | null | undefined, today: string): number | null {
-  if (!birthDate) return null;
-  const [by, bm, bd] = birthDate.split("-").map(Number);
-  const [ty, tm, td] = today.split("-").map(Number);
-  return ty - by - (tm < bm || (tm === bm && td < bd) ? 1 : 0);
-}
+const FALLBACK_MINUTES = 10;
 
-// Doctor view: only this doctor's queue (row-level security returns nothing
-// else), with complaints and AI summaries but no patient contact data.
+// Doctor dashboard: today's own queue only (row-level security returns
+// nothing else), with complaint summaries but no patient contact data.
 export default async function DoctorPage() {
   const staff = await requireStaff("doctor");
   const supabase = await createClient();
@@ -30,9 +27,9 @@ export default async function DoctorPage() {
 
   if (!staff.doctorId) {
     return (
-      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-6 py-10">
+      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-4 py-8 sm:px-6">
         <StaffHeader staff={staff} title="Antrean saya" />
-        <p className="text-amber-700 dark:text-amber-400">
+        <p className="rounded-[12px] border border-warn-line bg-warn-soft px-4 py-3 text-sm text-warn">
           Akun ini belum terhubung ke data dokter. Hubungi admin klinik.
         </p>
       </main>
@@ -44,7 +41,7 @@ export default async function DoctorPage() {
     supabase
       .from("queue_tickets")
       .select(
-        "id, ticket_number, position, status, channel, checked_in_at, estimated_call_at, complaint, is_follow_up, predicted_minutes, prediction_source, prediction_confidence, prediction_model, ai_summary, defer_count, patients (full_name, birth_date)",
+        "id, ticket_number, position, status, channel, checked_in_at, called_at, started_at, estimated_call_at, actual_minutes, complaint, is_follow_up, predicted_minutes, prediction_source, prediction_confidence, prediction_model, ai_summary, defer_count, patients (full_name, birth_date)",
       )
       .eq("doctor_id", staff.doctorId)
       .eq("service_date", today)
@@ -52,47 +49,114 @@ export default async function DoctorPage() {
   ]);
 
   const prefix = doctor?.ticket_prefix ?? "?";
-  const active = ["waiting", "called", "in_consultation"] as const;
-  const queue = tickets?.filter((t) => (active as readonly string[]).includes(t.status)) ?? [];
-  const finished = (tickets?.length ?? 0) - queue.length;
-  const current = queue.find((t) => t.status === "in_consultation") ?? queue.find((t) => t.status === "called");
-  const next = queue.find((t) => t.status === "waiting" && t.checked_in_at);
+  const all = tickets ?? [];
+  const inConsultation = all.find((t) => t.status === "in_consultation");
+  const called = all.find((t) => t.status === "called");
+  const current = inConsultation ?? called;
+  const waiting = all.filter((t) => t.status === "waiting");
+  const arrived = waiting.filter((t) => t.checked_in_at);
+  const next = arrived[0];
+  const done = all.filter((t) => t.status === "done");
   const shown = current ?? next;
-  const doctorId = staff.doctorId;
+
+  const avg = (xs: number[]) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null);
+  const avgActual = avg(done.map((t) => Number(t.actual_minutes ?? 0)).filter((m) => m > 0));
+  const avgPredicted = avg(done.map((t) => t.predicted_minutes ?? FALLBACK_MINUTES));
+  const last = waiting.at(-1);
+  const queueEnds = last?.estimated_call_at
+    ? new Date(Date.parse(last.estimated_call_at) + (last.predicted_minutes ?? FALLBACK_MINUTES) * 60000).toISOString()
+    : null;
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-6 py-10">
-      <StaffHeader staff={staff} title={`Antrean saya · ${doctor?.room ?? ""}`} />
+    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
+      <StaffHeader
+        staff={staff}
+        title={`${doctor?.room ?? "Ruang periksa"} · Antrean saya`}
+        aside={<LiveRefresh serviceDate={today} />}
+      />
 
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        {current?.status === "in_consultation" ? (
-          <ActionButton
-            action={finishConsultation.bind(null, current.id)}
-            label={`Selesai memeriksa ${ticketCode(prefix, current.ticket_number)}`}
-          />
-        ) : current?.status === "called" ? (
-          <ActionButton
-            action={startConsultation.bind(null, current.id)}
-            label={`Mulai pemeriksaan ${ticketCode(prefix, current.ticket_number)}`}
-          />
-        ) : (
-          <ActionButton action={callNext.bind(null, doctorId)} label="Panggil pasien berikutnya" />
-        )}
-        <LiveRefresh serviceDate={today} />
-      </div>
+      {error ? (
+        <p className="rounded-[12px] bg-danger-soft px-4 py-3 text-sm text-danger">Gagal memuat antrean: {error.message}</p>
+      ) : null}
 
-      {error ? <p className="text-red-700 dark:text-red-400">Gagal memuat antrean: {error.message}</p> : null}
+      <section aria-label="Ringkasan hari ini" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stat label="Menunggu" value={String(waiting.length)} note={`${arrived.length} sudah hadir`} />
+        <Stat label="Selesai hari ini" value={String(done.length)} note={done.length ? "pasien" : "belum ada"} />
+        <Stat
+          label="Rata-rata periksa"
+          value={avgActual === null ? "–" : `${avgActual} mnt`}
+          note={avgPredicted === null ? "belum ada data" : `estimasi rata-rata ${avgPredicted} mnt`}
+        />
+        <Stat
+          label="Antrean selesai sekitar"
+          value={queueEnds ? formatClinicTime(queueEnds) : "–"}
+          note={queueEnds ? `±${minutesUntil(queueEnds)} mnt lagi` : "tidak ada antrean"}
+        />
+      </section>
 
-      <div className="grid gap-6 md:grid-cols-[1fr_1.2fr]">
-        <section className="flex flex-col gap-3">
-          <h2 className="text-lg font-semibold">{current ? "Pasien saat ini" : "Pasien berikutnya"}</h2>
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+        <section aria-label="Pasien saat ini" className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4 rounded-[18px] border border-line bg-white p-5 shadow-card sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-[0.08em] text-muted">
+                  {inConsultation ? "Sedang diperiksa" : called ? "Dipanggil, menunggu pasien masuk" : "Berikutnya"}
+                </p>
+                <p className="mt-1 text-[40px] font-semibold leading-none tracking-[-0.05em] tabular-nums">
+                  {shown ? ticketCode(prefix, shown.ticket_number) : "–"}
+                </p>
+                <p className="mt-2 text-sm text-muted">
+                  {shown ? shown.patients?.full_name : waiting.length ? "Belum ada pasien yang hadir" : "Tidak ada pasien menunggu"}
+                </p>
+              </div>
+              {inConsultation?.started_at ? (
+                <div className="text-right">
+                  <p className="text-xs text-muted">Lama periksa</p>
+                  <p className="text-2xl font-semibold">
+                    <ElapsedTimer since={inConsultation.started_at} predictedMinutes={inConsultation.predicted_minutes} />
+                  </p>
+                </div>
+              ) : called?.called_at ? (
+                <div className="text-right">
+                  <p className="text-xs text-muted">Dipanggil sejak</p>
+                  <p className="text-2xl font-semibold">
+                    <ElapsedTimer since={called.called_at} />
+                  </p>
+                </div>
+              ) : null}
+            </div>
+
+            {inConsultation ? (
+              <ActionButton
+                action={finishConsultation.bind(null, inConsultation.id)}
+                label="Selesai pemeriksaan"
+                size="lg"
+                className="w-full"
+              />
+            ) : called ? (
+              <ActionButton
+                action={startConsultation.bind(null, called.id)}
+                label="Pasien masuk, mulai periksa"
+                size="lg"
+                className="w-full"
+              />
+            ) : (
+              <ActionButton
+                action={callNext.bind(null, staff.doctorId)}
+                label={next ? `Panggil ${ticketCode(prefix, next.ticket_number)}` : "Panggil pasien berikutnya"}
+                size="lg"
+                className="w-full"
+              />
+            )}
+          </div>
+
           <DoctorSummaryCard
             ticket={
               shown
                 ? {
                     ticketCode: ticketCode(prefix, shown.ticket_number),
                     patientName: shown.patients?.full_name,
-                    patientAgeYears: ageInYears(shown.patients?.birth_date, today),
+                    patientAgeYears: ageInYears(shown.patients?.birth_date, today) ?? null,
                     isFollowUp: shown.is_follow_up,
                     complaint: shown.complaint,
                     predictedMinutes: shown.predicted_minutes,
@@ -106,42 +170,95 @@ export default async function DoctorPage() {
           />
         </section>
 
-        <section className="flex flex-col gap-3">
+        <section aria-label="Antrean" className="flex flex-col gap-3">
           <div className="flex items-baseline justify-between">
-            <h2 className="text-lg font-semibold">Antrean</h2>
-            <p className="text-sm text-zinc-500">
-              {queue.length} aktif · {finished} selesai
-            </p>
+            <h2 className="text-lg font-semibold tracking-[-0.01em]">Antrean berikutnya</h2>
+            <p className="text-sm text-muted">{waiting.length} pasien</p>
           </div>
-          <ol className="divide-y divide-zinc-200 rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
-            {queue.map((t) => (
-              <li key={t.id} className="flex items-start justify-between gap-4 px-4 py-3 text-sm">
-                <div className="flex flex-col gap-0.5">
-                  <span className="font-medium">
-                    <span className="font-mono">{ticketCode(prefix, t.ticket_number)}</span> · {t.patients?.full_name}
-                  </span>
-                  <span className="text-zinc-600 dark:text-zinc-400">{t.complaint}</span>
-                </div>
-                <div className="flex shrink-0 flex-col items-end gap-1">
-                  <span>
-                    {TICKET_STATUS_LABEL[t.status]}
-                    {t.status === "waiting" && !t.checked_in_at ? (
-                      <span className="ml-1 text-xs text-amber-700 dark:text-amber-400">(belum tiba)</span>
-                    ) : t.status === "waiting" ? (
-                      <span className="ml-1 text-xs text-zinc-500">±{minutesUntil(t.estimated_call_at)} mnt</span>
-                    ) : null}
-                  </span>
-                  <span className="flex items-center gap-1.5 text-zinc-500">
-                    {t.predicted_minutes ?? "–"} mnt
-                    {t.prediction_source ? <EstimateSourceBadge source={t.prediction_source} compact /> : null}
-                  </span>
-                </div>
-              </li>
-            ))}
-            {queue.length === 0 ? <li className="px-4 py-4 text-sm text-zinc-500">Tidak ada pasien menunggu.</li> : null}
+
+          <ol className="overflow-hidden rounded-[18px] border border-line bg-white">
+            {waiting.map((t, i) => {
+              const age = ageInYears(t.patients?.birth_date, today);
+              return (
+                <li key={t.id} className="flex gap-3 border-b border-line-soft px-4 py-3.5 last:border-b-0">
+                  <span className="w-5 shrink-0 pt-0.5 text-sm tabular-nums text-faint">{i + 1}</span>
+                  <div className="flex min-w-0 flex-1 flex-col gap-1">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                      <p className="truncate font-medium">
+                        <span className="tabular-nums">{ticketCode(prefix, t.ticket_number)}</span>
+                        <span className="text-muted"> · {t.patients?.full_name}</span>
+                      </p>
+                      <p className="shrink-0 text-xs tabular-nums text-muted">
+                        {t.checked_in_at ? `±${minutesUntil(t.estimated_call_at)} mnt` : null}
+                      </p>
+                    </div>
+                    <p className="line-clamp-1 text-sm text-muted">{t.complaint}</p>
+                    <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                      {t.prediction_source ? (
+                        <>
+                          <span className="tabular-nums text-muted">{t.predicted_minutes} mnt</span>
+                          <EstimateSourceBadge source={t.prediction_source} compact />
+                        </>
+                      ) : null}
+                      {t.is_follow_up ? <Tag>Kontrol</Tag> : null}
+                      {age !== undefined ? <Tag>{age} thn</Tag> : null}
+                      {!t.checked_in_at ? <Tag tone="warn">Belum tiba</Tag> : null}
+                      {t.defer_count > 0 ? <Tag tone="warn">Ditunda {t.defer_count}×</Tag> : null}
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+            {waiting.length === 0 ? <li className="px-4 py-6 text-sm text-muted">Tidak ada pasien menunggu.</li> : null}
           </ol>
+
+          <details className="group rounded-[18px] border border-line bg-white">
+            <summary className="flex min-h-[48px] cursor-pointer list-none items-center justify-between px-4 text-sm font-medium [&::-webkit-details-marker]:hidden">
+              Selesai hari ini ({done.length})
+              <span className="text-muted transition-transform group-open:rotate-180" aria-hidden>
+                ▾
+              </span>
+            </summary>
+            <table className="w-full text-left text-sm">
+              <thead className="text-xs text-muted">
+                <tr className="border-t border-line-soft">
+                  <th className="px-4 py-2 font-medium">Tiket</th>
+                  <th className="px-4 py-2 font-medium">Pasien</th>
+                  <th className="px-4 py-2 text-right font-medium">Estimasi</th>
+                  <th className="px-4 py-2 text-right font-medium">Aktual</th>
+                </tr>
+              </thead>
+              <tbody>
+                {done.map((t) => (
+                  <tr key={t.id} className="border-t border-line-soft">
+                    <td className="px-4 py-2 tabular-nums">{ticketCode(prefix, t.ticket_number)}</td>
+                    <td className="truncate px-4 py-2 text-muted">{t.patients?.full_name}</td>
+                    <td className="px-4 py-2 text-right tabular-nums">{t.predicted_minutes ?? "–"} mnt</td>
+                    <td className="px-4 py-2 text-right tabular-nums">
+                      {t.actual_minutes != null ? `${Math.round(Number(t.actual_minutes))} mnt` : "–"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </details>
         </section>
       </div>
     </main>
   );
+}
+
+function Stat({ label, value, note }: { label: string; value: string; note: string }) {
+  return (
+    <div className="rounded-[14px] border border-line bg-white px-4 py-3">
+      <p className="text-xs text-muted">{label}</p>
+      <p className="mt-0.5 text-2xl font-semibold tabular-nums tracking-[-0.02em]">{value}</p>
+      <p className="text-xs text-muted">{note}</p>
+    </div>
+  );
+}
+
+function Tag({ children, tone = "neutral" }: { children: React.ReactNode; tone?: "neutral" | "warn" }) {
+  const cls = tone === "warn" ? "border-warn-line bg-warn-soft text-warn" : "border-line-soft bg-surface text-muted";
+  return <span className={`inline-flex items-center rounded-[6px] border px-1.5 py-0.5 ${cls}`}>{children}</span>;
 }

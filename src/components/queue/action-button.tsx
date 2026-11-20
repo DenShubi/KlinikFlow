@@ -5,16 +5,15 @@ import { useActionState } from "react";
 import type { ActionResult } from "@/lib/queue/actions";
 
 const VARIANTS = {
-  primary:
-    "bg-zinc-900 text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300",
-  secondary:
-    "border border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800",
-  danger: "border border-red-300 text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950",
+  primary: "bg-ink text-white hover:opacity-90 active:opacity-80",
+  secondary: "border border-line bg-white text-ink hover:bg-surface",
+  danger: "border border-[#F5B8B8] bg-white text-danger hover:bg-danger-soft",
 } as const;
 
 const SIZES = {
-  md: "px-4 py-2.5 text-sm",
-  sm: "px-2.5 py-1 text-xs",
+  lg: "min-h-[52px] px-6 text-base",
+  md: "min-h-[44px] px-5 text-sm",
+  sm: "min-h-[32px] px-3 text-xs",
 } as const;
 
 // A button that runs one queue Server Action (already bound to its ticket or
@@ -25,26 +24,28 @@ export function ActionButton({
   pendingLabel = "Memproses…",
   variant = "primary",
   size = "md",
+  className = "",
 }: {
   action: () => Promise<ActionResult>;
   label: string;
   pendingLabel?: string;
   variant?: keyof typeof VARIANTS;
   size?: keyof typeof SIZES;
+  className?: string;
 }) {
   const [state, formAction, pending] = useActionState<ActionResult>(() => action(), { ok: true });
 
   return (
-    <form action={formAction} className="inline-flex flex-col items-start gap-1">
+    <form action={formAction} className={`inline-flex flex-col items-start gap-1.5 ${className}`.trim()}>
       <button
         type="submit"
         disabled={pending}
-        className={`rounded-md font-semibold transition-colors disabled:opacity-60 ${VARIANTS[variant]} ${SIZES[size]}`}
+        className={`inline-flex w-full items-center justify-center rounded-full font-semibold transition-[opacity,background-color] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:opacity-60 ${VARIANTS[variant]} ${SIZES[size]}`}
       >
         {pending ? pendingLabel : label}
       </button>
       {!state.ok && state.error ? (
-        <span role="alert" className="text-xs text-red-700 dark:text-red-400">
+        <span role="alert" className="text-xs text-danger">
           {state.error}
         </span>
       ) : null}

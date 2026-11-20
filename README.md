@@ -116,9 +116,30 @@ npm run staff:seed
 npm run dev
 ```
 
-Open <http://localhost:3000>. The home page shows whether the app can reach
-Supabase. The same check is available as JSON at `/api/health` (HTTP 200 when
-connected, 503 when not). Staff sign in at <http://localhost:3000/login>.
+Open <http://localhost:3000>. The footer of the home page shows whether the
+app can reach Supabase. The same check is available as JSON at `/api/health`
+(HTTP 200 when connected, 503 when not).
+
+## Screens
+
+| Path | For | What it does |
+| --- | --- | --- |
+| `/` | Everyone | Start page: take a queue number or sign in as staff |
+| `/intake` | Patients | Register remotely: choose a doctor (with the current queue length), enter name, WhatsApp number and complaint |
+| `/ticket/<id>` | Patients | The patient's own ticket: number, people ahead, estimated call time, when to arrive; updates live |
+| `/login` | Staff | Sign in |
+| `/doctor` | Doctors | Dashboard: current patient with a timer, one button to call / start / finish, complaint summary, next patients, today's predicted vs actual durations |
+| `/reception` | Receptionists | All queues, add a patient, mark arrivals, cancel tickets |
+
+Patients never sign in. After registering they are sent to their ticket page,
+whose link contains the ticket id (a random UUID). That page reads
+`ticket_public_status`, a database function that returns only what the patient
+needs (no phone number, no complaint, only their first name and last initial),
+and listens to a public Realtime broadcast for their queue whose messages
+contain no personal data
+([`patient_ticket_access` migration](supabase/migrations/20261120113207_patient_ticket_access.sql)).
+The intake runs on the server with the secret key and validates every field;
+a hidden form field filters out simple bots.
 
 ## Staff accounts and roles
 
@@ -181,12 +202,17 @@ consultation plus the predicted minutes of everyone ahead of them. Predictions
 come from the consultation estimator when the ticket is created
 ([`src/lib/queue/estimator.ts`](src/lib/queue/estimator.ts)); it currently
 returns the default length (`QUEUE_FALLBACK_CONSULT_MINUTES`) until the AI
-estimator is connected.
+estimator is connected. Because time also passes between changes (a
+consultation runs over, a doctor is idle), a `pg_cron` job recalculates every
+active queue once a minute
+([`refresh_estimates_job` migration](supabase/migrations/20261120113912_refresh_estimates_job.sql)).
 
 **Live updates.** The reception and doctor pages subscribe to changes in
 `queue_tickets` through Supabase Realtime and re-render when anything changes,
 so every open window shows the same queue. Realtime applies the same
 row-level security, so a doctor only receives changes to their own queue.
+Patient ticket pages use the public broadcast described under [Screens](#screens),
+and also refresh every 30 seconds.
 
 ## Database
 
@@ -273,6 +299,7 @@ src/lib/env.ts      reads environment variables
 src/lib/supabase/   Supabase clients and generated database types
 src/lib/auth/       sign-in, sign-out and role checks for staff pages
 src/lib/queue/      queue actions, estimator entry point and labels
+src/lib/intake/     remote registration by patients
 src/components/     shared UI, including live queue updates
 src/lib/ai/         consultation length estimator (Gemini)
 src/proxy.ts        runs before each request, keeps the sign-in session fresh

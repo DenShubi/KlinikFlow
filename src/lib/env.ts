@@ -14,6 +14,15 @@ export function getSupabasePublicEnv() {
   return { url, publishableKey };
 }
 
+// Server only. Never import this from a Client Component.
+export function requireSupabaseSecretKey(): string {
+  const key = process.env.SUPABASE_SECRET_KEY;
+  if (!key) {
+    throw new Error("SUPABASE_SECRET_KEY is not set. Add it to .env.local (see .env.example).");
+  }
+  return key;
+}
+
 export function requireSupabasePublicEnv() {
   const env = getSupabasePublicEnv();
   if (!env) {

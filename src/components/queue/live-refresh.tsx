@@ -40,11 +40,11 @@ export function LiveRefresh({ serviceDate }: { serviceDate: string }) {
     };
   }, [serviceDate, router]);
 
-  const dot = status === "live" ? "bg-emerald-500" : status === "offline" ? "bg-red-500" : "bg-zinc-400";
+  const dot = status === "live" ? "bg-emerald-500" : status === "offline" ? "bg-red-500" : "bg-faint";
   const text = status === "live" ? "Langsung" : status === "offline" ? "Terputus, muat ulang halaman" : "Menghubungkan…";
 
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs text-zinc-500" aria-live="polite">
+    <span className="inline-flex items-center gap-1.5 text-xs text-muted" aria-live="polite">
       <span className={`h-2 w-2 rounded-full ${dot}`} aria-hidden />
       {text}
     </span>

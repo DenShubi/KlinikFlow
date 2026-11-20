@@ -6,28 +6,38 @@ import { checkSupabaseHealth } from "@/lib/supabase/health";
 
 export default function Home() {
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-16">
-      <header className="flex flex-col gap-2">
-        <h1 className="text-3xl font-semibold tracking-tight">KlinikFlow</h1>
-        <p className="text-zinc-600 dark:text-zinc-400">
-          Hybrid clinic queue: walk-in and remote patients in one line.
+    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center gap-10 px-4 py-12">
+      <header className="flex flex-col gap-3">
+        <p className="text-sm font-medium text-brand-strong">KlinikFlow</p>
+        <h1 className="text-[34px] font-semibold leading-[1.1] tracking-[-0.035em]">
+          Antre dari rumah, datang saat giliran Anda dekat.
+        </h1>
+        <p className="text-[15px] leading-relaxed text-muted">
+          Pasien yang daftar online dan yang datang langsung berada di satu antrean. Pantau giliran Anda dari
+          ponsel dan dapatkan kabar lewat WhatsApp.
         </p>
+      </header>
+
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <Link
+          href="/intake"
+          className="inline-flex min-h-[52px] items-center justify-center rounded-full bg-ink px-6 text-base font-semibold text-white hover:opacity-90"
+        >
+          Ambil antrean
+        </Link>
         <Link
           href="/login"
-          className="mt-2 w-fit rounded-md bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+          className="inline-flex min-h-[52px] items-center justify-center rounded-full border border-line bg-white px-6 text-base font-semibold hover:bg-surface"
         >
           Masuk staf
         </Link>
-      </header>
+      </div>
 
-      <section className="rounded-lg border border-zinc-200 p-5 dark:border-zinc-800">
-        <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-zinc-500">
-          Setup status
-        </h2>
-        <Suspense fallback={<p className="text-zinc-500">Checking Supabase…</p>}>
+      <footer className="text-xs text-faint">
+        <Suspense fallback={<span>Memeriksa koneksi…</span>}>
           <SupabaseStatus />
         </Suspense>
-      </section>
+      </footer>
     </main>
   );
 }
@@ -38,25 +48,19 @@ async function SupabaseStatus() {
 
   if (health.status === "not_configured") {
     return (
-      <p className="text-amber-700 dark:text-amber-400">
-        Supabase is not configured. Copy <code>.env.example</code> to <code>.env.local</code>{" "}
-        and fill in the Supabase URL and publishable key, then restart <code>npm run dev</code>.
-      </p>
+      <span className="text-warn">
+        Supabase belum dikonfigurasi: salin <code>.env.example</code> ke <code>.env.local</code> lalu isi URL dan
+        kuncinya.
+      </span>
     );
   }
-
   if (health.status === "error") {
-    return (
-      <p className="text-red-700 dark:text-red-400">
-        Cannot reach Supabase at <code>{health.url}</code>: {health.message}
-      </p>
-    );
+    return <span className="text-danger">Tidak bisa terhubung ke Supabase: {health.message}</span>;
   }
-
   return (
-    <p className="text-emerald-700 dark:text-emerald-400">
-      Connected to Supabase at <code>{health.url}</code>
-      {health.authVersion ? ` (Auth ${health.authVersion})` : ""} in {health.latencyMs} ms.
-    </p>
+    <span>
+      <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 align-middle" aria-hidden />
+      Terhubung ke Supabase ({health.latencyMs} ms)
+    </span>
   );
 }

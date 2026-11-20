@@ -553,6 +553,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ticket_public_status: { Args: { p_ticket_id: string }; Returns: Json }
     }
     Enums: {
       app_role: "receptionist" | "doctor"

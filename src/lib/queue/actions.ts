@@ -2,6 +2,7 @@
 
 import { refresh } from "next/cache";
 
+import { ageInYears } from "@/lib/age";
 import { requireStaff } from "@/lib/auth/dal";
 import { clinicToday } from "@/lib/clinic-time";
 import { normalizePhone } from "@/lib/phone";
@@ -13,14 +14,6 @@ import type { Database } from "@/lib/supabase/database.types";
 export type ActionResult = { ok: boolean; error?: string; message?: string };
 
 type Channel = Database["public"]["Enums"]["ticket_channel"];
-
-function ageInYears(birthDate: string, today: string): number | undefined {
-  const [by, bm, bd] = birthDate.split("-").map(Number);
-  const [ty, tm, td] = today.split("-").map(Number);
-  if (!by || !ty) return undefined;
-  const age = ty - by - (tm < bm || (tm === bm && td < bd) ? 1 : 0);
-  return age >= 0 && age < 130 ? age : undefined;
-}
 
 // Receptionist adds a patient to a doctor's queue: creates the patient,
 // estimates the consultation length, then appends the ticket.
@@ -51,7 +44,7 @@ export async function createTicket(_prev: ActionResult, formData: FormData): Pro
   const estimate = await estimateForQueue({
     ticketId: "", // not created yet; the estimator never sends it anywhere
     complaint,
-    patientAgeYears: birthDate ? ageInYears(birthDate, clinicToday()) : undefined,
+    patientAgeYears: ageInYears(birthDate, clinicToday()),
     isFollowUp,
     doctorId,
   });

@@ -95,6 +95,22 @@ async function main() {
   const recLive = await listen(receptionist, "receptionist");
   const docBLive = await listen(doctorB, "doctor-b");
 
+  // A patient's phone: not signed in, listens to the public broadcast for the queue.
+  const patient = createClient<Database>(url, publishableKey, options);
+  const patientEvents: unknown[] = [];
+  const patientChannel = patient
+    .channel(`queue:${docA}:${TEST_DATE}`)
+    .on("broadcast", { event: "queue_changed" }, (msg) => patientEvents.push(msg));
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Broadcast subscribe timed out")), 15000);
+    patientChannel.subscribe((status) => {
+      if (status === "SUBSCRIBED") {
+        clearTimeout(timer);
+        resolve();
+      }
+    });
+  });
+
   try {
     console.log("Tickets and wait estimates");
     const create = (client: Client, i: number, channel: "walk_in" | "remote", minutes: number) =>
@@ -154,7 +170,23 @@ async function main() {
     check("receptionist received the changes live", recLive.events.length >= 5, `${recLive.events.length} events`);
     check("  including #1 called and #1 done", statuses.includes("#1:called") && statuses.includes("#1:done"));
     check("doctor B received nothing from doctor A's queue (RLS)", docBLive.events.length === 0, `${docBLive.events.length} events`);
+
+    console.log("\nPatient view (not signed in)");
+    const { data: raw, error: statusError } = await patient.rpc("ticket_public_status", { p_ticket_id: t3.data!.id });
+    const status = raw as Record<string, unknown> | null;
+    check("patient reads own ticket by id", status?.ticket_code === "A-003" && status.status === "called", statusError?.message);
+    check(
+      "status has no phone, complaint or full name",
+      !!status && !("phone" in status) && !("complaint" in status) && !String(status.patient_short_name).includes("Pasien 3"),
+      String(status?.patient_short_name),
+    );
+    const { count: anonRows } = await patient.from("queue_tickets").select("*", { count: "exact", head: true });
+    check("patient still cannot read the tickets table", (anonRows ?? 0) === 0, `${anonRows ?? 0} rows`);
+    check("patient received live broadcasts for the queue", patientEvents.length > 0, `${patientEvents.length} messages`);
+    const leaked = JSON.stringify(patientEvents).includes(TEST_TAG);
+    check("broadcasts carry no patient data", !leaked);
   } finally {
+    await patient.removeChannel(patientChannel);
     await recLive.close();
     await docBLive.close();
     await admin.from("queue_tickets").delete().eq("service_date", TEST_DATE);
