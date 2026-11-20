@@ -4,10 +4,46 @@ KlinikFlow is a queue system for small clinics. Patients who walk in and
 patients who register remotely wait in **one shared queue**, and everyone sees
 an estimated waiting time that updates live.
 
-Built for **STACK 2026**. All patient data in this repository is **synthetic**.
+Built for **STACK 2026**. All patient data in this repository and in the demo
+is **synthetic**.
 
-> **Status:** in active development. The features below describe the system
-> being built; this README is updated as each one lands.
+> **Status: semifinal build.** The hybrid queue, live updates, wait estimates,
+> patient intake and ticket page, doctor dashboard and role-based access work
+> today. Auto-defer and WhatsApp alerts are scheduled for December and are
+> marked *(planned)* below.
+
+## Try the demo
+
+**Live demo:** _link added after deployment_
+
+| Role | Email | Opens |
+| --- | --- | --- |
+| Receptionist | `resepsionis@klinikflow.test` | `/reception` |
+| Doctor (queue A) | `dokter.a@klinikflow.test` | `/doctor` |
+| Doctor (queue B) | `dokter.b@klinikflow.test` | `/doctor` |
+| Doctor (queue C) | `dokter.c@klinikflow.test` | `/doctor` |
+
+The password for these demo accounts is given in our submission, not in this
+repository. Patients do not need an account.
+
+A five-minute walkthrough:
+
+1. **As a patient** (on a phone, or a narrow window): open the demo, choose
+   **Ambil antrean**, pick *dr. Larasati Wibowo* and register with any name and
+   a number like `0800 0000 1234`. You get a ticket page with your number,
+   people ahead and an estimated call time. Keep it open.
+2. **As the receptionist** (a second browser or a private window): sign in.
+   Your ticket appears in queue A as *Daftar online (belum tiba)*. Click
+   **Tiba** to mark that you have arrived; the ticket page updates by itself.
+3. **As doctor A** (a third window): sign in. Use the main button to finish
+   the current patient and call the next ones. Every open window, including
+   the patient's ticket page, follows within a second or two.
+4. **Hybrid queue:** register another remote patient and do *not* mark them as
+   arrived. When their turn comes, the doctor calls the next patient who is
+   here; the remote ticket shows *Giliran Anda terlewat*. Mark them as arrived
+   and they rejoin two places behind the patients in the room.
+5. **Wait estimates:** the doctor dashboard compares estimated and actual
+   consultation lengths for the patients finished today.
 
 ## The problem
 
@@ -28,10 +64,11 @@ queue stalls.
 - **Wait estimates.** Each consultation's expected length is estimated from the
   patient's complaint. If the estimate is unavailable, a default duration is
   used and the screen says so.
-- **Auto-defer.** A patient who is absent when called moves back two places
-  automatically instead of blocking the queue.
-- **WhatsApp alerts.** Patients get a message when their visit time changes and
-  when they are three turns away, so they can wait elsewhere.
+- **Auto-defer** *(planned)*. A patient who is absent when called moves back
+  two places automatically instead of blocking the queue.
+- **WhatsApp alerts** *(planned)*. Patients get a message when their visit time
+  changes and when they are three turns away, so they can wait elsewhere.
+  Until then, the live ticket page tells them when to come.
 - **Role-based access.** Receptionists and doctors sign in to separate screens
   and only see the data their role needs, enforced in the database.
 
@@ -88,22 +125,29 @@ Pick **one** of the two options.
    off **Allow new users to sign up**. Staff accounts are created by script
    only (see [Staff accounts](#staff-accounts-and-roles)).
 
-**Option B: local Supabase (Docker)**
+**Option B: local Supabase (Docker), also the offline fallback**
 
-1. Start Docker Desktop.
-2. Start the local stack and apply migrations and seed data:
+Everything runs on one computer: no hosted project and no internet needed
+after the first download of the Docker images (a few GB).
+
+1. Start Docker Desktop and wait until it says it is running.
+2. Start the local stack. The first run downloads the images; then it applies
+   all migrations and the synthetic seed:
 
    ```bash
    npm run db:start
    ```
 
-3. Copy the environment template and fill it with the URL and keys printed by
-   `npm run db:status`:
+3. Point the app at the local stack:
 
    ```bash
-   cp .env.example .env.local
-   npm run db:status
+   cp .env.example .env.local   # only if you have no .env.local yet
+   npm run env:local
    ```
+
+   `env:local` fills in the local URL and keys. If `.env.local` pointed at a
+   hosted project, it is saved first as `.env.hosted`; `npm run env:hosted`
+   switches back.
 
 ### 3. Create the staff accounts
 
@@ -122,6 +166,42 @@ npm run dev
 Open <http://localhost:3000>. The footer of the home page shows whether the
 app can reach Supabase. The same check is available as JSON at `/api/health`
 (HTTP 200 when connected, 503 when not).
+
+### Refreshing the demo queue
+
+The seed builds today's queue around the moment it runs. On a later day,
+rebuild only today's queue (past days, patients and staff accounts stay):
+
+```bash
+npm run demo:refresh -- --yes
+```
+
+It refuses to run if today's queue holds any patient with a real phone number
+(outside the synthetic `+62 800` range), so it cannot erase real visits.
+
+## Deploying
+
+The app is a standard Next.js project and deploys to
+[Vercel](https://vercel.com) as is:
+
+1. Import the GitHub repository in Vercel (framework: Next.js, default build
+   settings). [`vercel.json`](vercel.json) runs the server code in Sydney
+   (`syd1`), next to the Supabase project (`ap-southeast-2`); change both
+   together if you move the database.
+2. Add the environment variables from [`.env.example`](.env.example) in
+   **Settings → Environment Variables**. At least `NEXT_PUBLIC_SUPABASE_URL`,
+   `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY` and
+   `NEXT_PUBLIC_APP_URL` (the deployment's own URL). `NEXT_PUBLIC_*` values are
+   built into the app, so redeploy after changing them.
+3. In Supabase, open **Authentication → URL Configuration** and set the
+   **Site URL** to the deployment's URL.
+4. Check the deployment: `/api/health` should return HTTP 200, and
+
+   ```bash
+   NEXT_PUBLIC_APP_URL=https://your-app.vercel.app npm run test:auth
+   ```
+
+   should pass.
 
 ## Screens
 
@@ -263,8 +343,12 @@ The seed creates 3 doctors, 80 patients, about two weeks of finished visits
 the seed runs. Seed phone numbers use the `+62 800` prefix, which is not a
 mobile range, so no real person can receive messages from seed data.
 
-Today's queue is generated relative to the time the seed runs. To refresh it
-before a demo, rebuild the database. **This deletes all data** in that database:
+Visits are generated by `private.generate_demo_day` in the database
+([`demo_data` migration](supabase/migrations/20261120120318_demo_data.sql)).
+Today's queue is built around the time the seed runs; on a later day use
+`npm run demo:refresh -- --yes` (see [Refreshing the demo queue](#refreshing-the-demo-queue)).
+
+To rebuild a database from scratch instead (**this deletes all data** in it):
 
 ```bash
 npm run db:reset                  # local stack
@@ -287,6 +371,7 @@ tokens.
 | `NEXT_PUBLIC_APP_URL` | Base URL used in links and auth redirects | no |
 | `GEMINI_API_KEY` | Consultation estimates | **yes** |
 | `GEMINI_MODEL` | Gemini model used for estimates | no |
+| `GEMINI_TIMEOUT_MS` | How long to wait for Gemini before using the default length | no |
 | `QUEUE_FALLBACK_CONSULT_MINUTES` | Default consultation length when no estimate is available | no |
 | `WHATSAPP_SEND_ENABLED` | `false` logs messages instead of sending them | no |
 | `WHATSAPP_ACCESS_TOKEN` | Sending WhatsApp messages | **yes** |
@@ -315,6 +400,8 @@ build time, so set them before running `npm run build` or deploying.
 | `npm run test:rls` | Check row-level security for each role against the database |
 | `npm run test:auth` | Check which staff pages each role can open (needs `npm run dev`) |
 | `npm run test:queue` | Run the whole queue flow against the database and check Realtime |
+| `npm run demo:refresh -- --yes` | Replace today's queue with a fresh synthetic one (never touches real patients) |
+| `npm run env:local` / `env:hosted` | Point `.env.local` at the local Supabase stack or back at the hosted project |
 
 ## Project structure
 
@@ -334,7 +421,24 @@ supabase/           Supabase configuration, migrations and seed data
 docs/CONTRACT.md    interface between the queue and the estimation module
 ```
 
+## AI disclosure
+
+KlinikFlow uses Google's Gemini API (server-side only) for two narrow tasks:
+estimating how long a GP consultation will take (clamped to 5–25 minutes) and
+writing a one- or two-sentence neutral summary of the patient's complaint for
+the doctor. The AI never diagnoses, recommends medication or reorders the
+queue by urgency. Only the complaint text, an optional age in years and a
+follow-up flag are sent to the model; never a name, phone number, birth date
+or ticket id. Every answer is validated, and on timeout or error the queue uses
+a default length, marked *Estimasi standar* on screen.
+
+Full details, evaluation results and known limitations:
+[docs/AI_DISCLOSURE.md](docs/AI_DISCLOSURE.md).
+
 ## Data and privacy
 
 KlinikFlow is developed and demonstrated with synthetic data only. No real
-patient information is stored in this repository or its seed files.
+patient information is stored in this repository, its seed files or the demo
+database; seed phone numbers use the non-mobile `+62 800` range. Keys and
+tokens live only in `.env.local` and in the hosting provider's settings, never
+in the repository.

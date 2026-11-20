@@ -18,7 +18,10 @@
     "staff:seed": "node --env-file=.env.local scripts/seed-staff.mts",
     "test:rls": "node --env-file=.env.local scripts/check-rls.mts",
     "test:auth": "node --env-file=.env.local scripts/check-auth-pages.mts",
-    "test:queue": "node --env-file=.env.local scripts/check-queue.mts"
+    "test:queue": "node --env-file=.env.local scripts/check-queue.mts",
+    "demo:refresh": "node --env-file=.env.local scripts/demo-refresh.mts",
+    "env:local": "node scripts/use-supabase.mts local",
+    "env:hosted": "node scripts/use-supabase.mts hosted"
   },
   "dependencies": {
     "@google/genai": "^3.6.1",

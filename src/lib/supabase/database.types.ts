@@ -316,6 +316,7 @@ export type Database = {
     }
     Functions: {
       clinic_today: { Args: never; Returns: string }
+      demo_refresh_today: { Args: never; Returns: Json }
       queue_call_next: {
         Args: { p_doctor_id: string; p_service_date?: string }
         Returns: {
