@@ -1,36 +1,79 @@
 # KlinikFlow
 
-Hybrid clinic queue: walk-in and remote patients share one live queue, with an
-AI estimate of each consultation's length. Built for STACK 2026.
+KlinikFlow is a queue system for small clinics. Patients who walk in and
+patients who register remotely wait in **one shared queue**, and everyone sees
+an estimated waiting time that updates live.
 
-All patient data in this project is **synthetic**.
+Built for **STACK 2026**. All patient data in this repository is **synthetic**.
 
-## Stack
+> **Status:** in active development. The features below describe the system
+> being built; this README is updated as each one lands.
 
-- [Next.js 16](https://nextjs.org) (App Router, TypeScript, Tailwind CSS 4)
-- [Supabase](https://supabase.com): Postgres, Auth, Row-Level Security, Realtime
-- Gemini (AI estimator, server-side only)
+## The problem
 
-## Setup
+In many clinics, patients take a number and wait in the room without knowing
+when they will be seen. Walk-in patients and patients who booked remotely are
+often handled in separate lines. If someone is absent when called, the whole
+queue stalls.
 
-Requirements: Node.js 20+ and npm. Docker Desktop only if you run Supabase locally.
+## How KlinikFlow works
+
+- **One hybrid queue.** Walk-in and remote patients are merged into a single
+  ordered queue that the receptionist, the doctor and the patient all see.
+- **Live updates.** When the doctor calls the next patient, every open screen
+  updates within seconds, so no one has to refresh.
+- **Wait estimates.** Each consultation's expected length is estimated from the
+  patient's complaint. If the estimate is unavailable, a default duration is
+  used and the screen says so.
+- **Auto-defer.** A patient who is absent when called moves back two places
+  automatically instead of blocking the queue.
+- **WhatsApp alerts.** Patients get a message when their visit time changes and
+  when they are three turns away, so they can wait elsewhere.
+- **Role-based access.** Receptionists and doctors sign in to separate screens
+  and only see the data their role needs, enforced in the database.
+
+## Tech stack
+
+| Part | Technology |
+| --- | --- |
+| Web app | [Next.js 16](https://nextjs.org) (App Router), TypeScript, Tailwind CSS 4 |
+| Database, auth, live updates | [Supabase](https://supabase.com): Postgres, Auth, Row-Level Security, Realtime |
+| Consultation estimates | Google Gemini, called from the server only |
+| Notifications | WhatsApp |
+
+## Running it locally
+
+### What you need
+
+- [Node.js](https://nodejs.org) 20 or newer (includes npm)
+- A Supabase project, either hosted (free tier is enough) or local
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/), only if
+  you run Supabase locally
+
+### 1. Install
 
 ```bash
+git clone https://github.com/DenShubi/KlinikFlow.git
+cd KlinikFlow
 npm install
-cp .env.example .env.local   # then fill in the values (see below)
-npm run dev                  # http://localhost:3000
 ```
 
-The home page shows whether the app reaches Supabase; `GET /api/health`
-returns the same check as JSON (HTTP 200 when connected, 503 when not).
+### 2. Connect a Supabase project
 
-### Supabase: hosted project
+Pick **one** of the two options.
 
-1. Create a project at [supabase.com/dashboard](https://supabase.com/dashboard)
-   (region: Southeast Asia (Singapore) is closest).
-2. From **Project Settings → API Keys**, copy the Project URL, the publishable
-   key and the secret key into `.env.local`.
-3. Link the CLI so migrations can be pushed:
+**Option A: hosted Supabase**
+
+1. Create a project at [supabase.com/dashboard](https://supabase.com/dashboard).
+2. Copy the environment template:
+
+   ```bash
+   cp .env.example .env.local
+   ```
+
+3. In the dashboard, open **Project Settings → API Keys**. Copy the Project
+   URL, the publishable key and the secret key into `.env.local`.
+4. Apply the database migrations:
 
    ```bash
    npx supabase login
@@ -38,50 +81,83 @@ returns the same check as JSON (HTTP 200 when connected, 503 when not).
    npm run db:push
    ```
 
-### Supabase: local stack (fallback, needs Docker)
+**Option B: local Supabase (Docker)**
+
+1. Start Docker Desktop.
+2. Start the local stack and apply migrations and seed data:
+
+   ```bash
+   npm run db:start
+   ```
+
+3. Copy the environment template and fill it with the URL and keys printed by
+   `npm run db:status`:
+
+   ```bash
+   cp .env.example .env.local
+   npm run db:status
+   ```
+
+### 3. Start the app
 
 ```bash
-npm run db:start    # starts Postgres, Auth, Realtime and Studio in Docker
-npm run db:status   # prints the local URL and keys for .env.local
-npm run db:reset    # re-applies migrations and seed on a fresh database
+npm run dev
 ```
+
+Open <http://localhost:3000>. The home page shows whether the app can reach
+Supabase. The same check is available as JSON at `/api/health` (HTTP 200 when
+connected, 503 when not).
 
 ## Environment variables
 
-Every variable is listed in [`.env.example`](.env.example). Real values live
-only in `.env.local`, which is git-ignored. No keys or tokens are committed.
+All variables are listed with comments in [`.env.example`](.env.example).
+Put real values in `.env.local`, which git ignores. Never commit keys or
+tokens.
 
-| Variable | Where it is used | Secret |
+| Variable | Used for | Secret |
 | --- | --- | --- |
-| `NEXT_PUBLIC_SUPABASE_URL` | browser and server | no |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | browser and server, limited by RLS | no |
-| `SUPABASE_SECRET_KEY` | server only (seed, webhooks); bypasses RLS | **yes** |
-| `NEXT_PUBLIC_APP_URL` | links in messages, auth redirects | no |
-| `GEMINI_API_KEY` | server only, AI estimator | **yes** |
-| `GEMINI_MODEL` | server only, AI estimator | no |
-| `QUEUE_FALLBACK_CONSULT_MINUTES` | wait shown when the AI estimate fails | no |
-| `WHATSAPP_SEND_ENABLED` | `false` logs messages instead of sending | no |
-| `WHATSAPP_ACCESS_TOKEN` | server only, WhatsApp sending | **yes** |
-| `WHATSAPP_PHONE_NUMBER_ID` | server only, WhatsApp sending | no |
-| `WHATSAPP_WEBHOOK_VERIFY_TOKEN` | server only, webhook verification | **yes** |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | no |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Browser and server access, limited by row-level security | no |
+| `SUPABASE_SECRET_KEY` | Trusted server tasks such as seeding and webhooks; bypasses row-level security | **yes** |
+| `NEXT_PUBLIC_APP_URL` | Base URL used in links and auth redirects | no |
+| `GEMINI_API_KEY` | Consultation estimates | **yes** |
+| `GEMINI_MODEL` | Gemini model used for estimates | no |
+| `QUEUE_FALLBACK_CONSULT_MINUTES` | Default consultation length when no estimate is available | no |
+| `WHATSAPP_SEND_ENABLED` | `false` logs messages instead of sending them | no |
+| `WHATSAPP_ACCESS_TOKEN` | Sending WhatsApp messages | **yes** |
+| `WHATSAPP_PHONE_NUMBER_ID` | Sender number for WhatsApp messages | no |
+| `WHATSAPP_WEBHOOK_VERIFY_TOKEN` | Verifying incoming WhatsApp webhooks | **yes** |
+
+Variables starting with `NEXT_PUBLIC_` are included in the browser bundle at
+build time, so set them before running `npm run build` or deploying.
 
 ## Scripts
 
-| Script | What it does |
+| Command | What it does |
 | --- | --- |
-| `npm run dev` | start the dev server |
-| `npm run build` / `npm start` | production build and server |
-| `npm run lint` / `npm run typecheck` | ESLint and TypeScript checks |
-| `npm run db:new <name>` | create a new migration in `supabase/migrations` |
-| `npm run db:push` | apply migrations to the linked hosted project |
+| `npm run dev` | Start the development server |
+| `npm run build` | Create a production build |
+| `npm start` | Run the production build |
+| `npm run lint` | Check code style with ESLint |
+| `npm run typecheck` | Check types with TypeScript |
+| `npm run db:start` / `db:stop` | Start or stop the local Supabase stack |
+| `npm run db:status` | Show the local Supabase URL and keys |
+| `npm run db:reset` | Rebuild the local database from migrations and seed data |
+| `npm run db:new <name>` | Create a new migration file |
+| `npm run db:push` | Apply migrations to the linked hosted project |
 
-## Project layout
+## Project structure
 
 ```
-src/app/            routes (App Router)
+src/app/            pages and API routes
 src/lib/env.ts      reads environment variables
-src/lib/supabase/   Supabase clients: browser, server, proxy (session refresh)
-src/proxy.ts        runs before each request; refreshes the auth session
-supabase/           CLI config, migrations and seed
-docs/CONTRACT.md    schema fields and estimateConsultation contract (Denin ↔ Farhan)
+src/lib/supabase/   Supabase clients for the browser, server and proxy
+src/proxy.ts        runs before each request and keeps the sign-in session fresh
+supabase/           Supabase configuration, migrations and seed data
+docs/CONTRACT.md    interface between the queue and the estimation module
 ```
+
+## Data and privacy
+
+KlinikFlow is developed and demonstrated with synthetic data only. No real
+patient information is stored in this repository or its seed files.
