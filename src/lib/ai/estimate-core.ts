@@ -20,8 +20,33 @@ const MIN_MINUTES = 5;
 const MAX_MINUTES = 25;
 const DEFAULT_FALLBACK_MINUTES = 10;
 const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite";
-const TIMEOUT_MS = 4000;
+const DEFAULT_TIMEOUT_MS = 4000;
+const MIN_TIMEOUT_MS = 1000;
+const MAX_TIMEOUT_MS = 15000;
 const MAX_FALLBACK_SUMMARY_LENGTH = 160;
+
+let cachedClient: { apiKey: string; client: GoogleGenAI } | null = null;
+
+function getClient(apiKey: string): GoogleGenAI {
+  if (cachedClient && cachedClient.apiKey === apiKey) {
+    return cachedClient.client;
+  }
+  const client = new GoogleGenAI({ apiKey });
+  cachedClient = { apiKey, client };
+  return client;
+}
+
+function getTimeoutMs(): number {
+  const raw = process.env.GEMINI_TIMEOUT_MS?.trim();
+  if (!raw) {
+    return DEFAULT_TIMEOUT_MS;
+  }
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed)) {
+    return DEFAULT_TIMEOUT_MS;
+  }
+  return Math.min(MAX_TIMEOUT_MS, Math.max(MIN_TIMEOUT_MS, parsed));
+}
 
 const SYSTEM_INSTRUCTION = [
   "You are a primary clinic triage duration estimator for local Indonesian general practice clinics.",
@@ -117,7 +142,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function buildSanitizedPromptPayload(input: EstimateInput): string {
+export function buildSanitizedPromptPayload(input: EstimateInput): string {
   // Privacy guard: ONLY forward complaint, isFollowUp, and patientAgeYears.
   // Never include ticketId, doctorId, or any PII.
   const payload: {
@@ -143,7 +168,7 @@ function buildSanitizedPromptPayload(input: EstimateInput): string {
   return JSON.stringify(payload);
 }
 
-function parseEstimateResponse(
+export function parseEstimateResponse(
   rawText: string,
   modelId: string,
   trimmedComplaint: string,
@@ -201,11 +226,12 @@ export async function estimateConsultation(input: EstimateInput): Promise<Estima
   }
 
   const modelId = getModelId();
+  const timeoutMs = getTimeoutMs();
   const controller = new AbortController();
   let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
 
   try {
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = getClient(apiKey);
     const promptPayload = buildSanitizedPromptPayload({
       ticketId: "",
       complaint: trimmedComplaint,
@@ -216,8 +242,8 @@ export async function estimateConsultation(input: EstimateInput): Promise<Estima
     const timeoutPromise = new Promise<never>((_, reject) => {
       timeoutHandle = setTimeout(() => {
         controller.abort();
-        reject(new Error("Gemini estimation request timed out"));
-      }, TIMEOUT_MS);
+        reject(new Error(`Gemini estimation request timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
     });
 
     const thinkingConfig = getThinkingConfig(modelId);
@@ -227,7 +253,7 @@ export async function estimateConsultation(input: EstimateInput): Promise<Estima
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
         temperature: 0.2,
-        maxOutputTokens: 256,
+        maxOutputTokens: 1024,
         ...(thinkingConfig ? { thinkingConfig } : {}),
         responseMimeType: "application/json",
         responseJsonSchema: RESPONSE_JSON_SCHEMA,
@@ -238,16 +264,26 @@ export async function estimateConsultation(input: EstimateInput): Promise<Estima
     const response = await Promise.race([requestPromise, timeoutPromise]);
     const text = response.text?.trim();
     if (!text) {
+      if (process.env.DEBUG_AI_ESTIMATE === "1") {
+        console.warn("[estimateConsultation] Empty response text from Gemini");
+      }
       return buildFallback(trimmedComplaint, fallbackMinutes);
     }
 
     const validated = parseEstimateResponse(text, modelId, trimmedComplaint);
     if (!validated) {
+      if (process.env.DEBUG_AI_ESTIMATE === "1") {
+        console.warn("[estimateConsultation] Invalid JSON response from Gemini:", text.slice(0, 200));
+      }
       return buildFallback(trimmedComplaint, fallbackMinutes);
     }
 
     return validated;
-  } catch {
+  } catch (err) {
+    if (process.env.DEBUG_AI_ESTIMATE === "1") {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[estimateConsultation] Fallback triggered: ${msg}`);
+    }
     return buildFallback(trimmedComplaint, fallbackMinutes);
   } finally {
     if (timeoutHandle !== undefined) {
