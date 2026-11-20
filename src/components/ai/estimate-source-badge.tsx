@@ -27,8 +27,8 @@ export function EstimateSourceBadge({
   const confidenceText = isAi && showConfidence ? formatConfidence(confidence) : null;
 
   const containerClasses = isAi
-    ? "border-[#B8DCF0] bg-[#EDF6FC] text-[#176B96]"
-    : "border-[#F3CC7A] bg-[#FEF3C7] text-[#92400E]";
+    ? "border-tint-strong bg-tint text-accent-strong"
+    : "border-warn-line bg-warn-soft text-warn";
 
   const paddingClasses = compact ? "px-2 py-0.5 text-[11px]" : "px-2.5 py-1 text-xs";
 
@@ -43,7 +43,7 @@ export function EstimateSourceBadge({
           viewBox="0 0 16 16"
           fill="none"
           aria-hidden="true"
-          className="shrink-0 text-[#2597D0]"
+          className="shrink-0 text-accent"
         >
           <path
             d="M1.75 8.5H4.25L5.75 4.25L8.25 11.75L10.25 6.75L11.5 8.5H14.25"
@@ -60,7 +60,7 @@ export function EstimateSourceBadge({
           viewBox="0 0 16 16"
           fill="none"
           aria-hidden="true"
-          className="shrink-0 text-[#92400E]"
+          className="shrink-0 text-warn"
         >
           <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5" />
           <path
@@ -77,7 +77,7 @@ export function EstimateSourceBadge({
 
       {confidenceText ? (
         <span
-          className="border-l border-[#B8DCF0] pl-1.5 font-normal tabular-nums text-[#176B96]"
+          className="border-l border-tint-strong pl-1.5 font-normal tabular-nums text-accent-strong"
           title="Tingkat keyakinan estimasi"
         >
           {confidenceText}

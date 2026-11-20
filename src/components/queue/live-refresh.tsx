@@ -10,6 +10,7 @@ type Status = "connecting" | "live" | "offline";
 // Keeps a staff screen in step with the database: when any ticket of the given
 // day changes (from this or another window), the page re-renders on the server.
 // Realtime applies row-level security, so a doctor only hears about their own queue.
+// Visible only when the connection drops, since that is when staff must act.
 export function LiveRefresh({ serviceDate }: { serviceDate: string }) {
   const router = useRouter();
   const [status, setStatus] = useState<Status>("connecting");
@@ -17,6 +18,8 @@ export function LiveRefresh({ serviceDate }: { serviceDate: string }) {
   useEffect(() => {
     const supabase = createClient();
     let timer: ReturnType<typeof setTimeout> | undefined;
+    // A removed channel still reports CLOSED; ignore anything after cleanup.
+    let active = true;
 
     const channel = supabase
       .channel(`queue-tickets-${serviceDate}`)
@@ -30,23 +33,28 @@ export function LiveRefresh({ serviceDate }: { serviceDate: string }) {
         },
       )
       .subscribe((state) => {
+        if (!active) return;
         if (state === "SUBSCRIBED") setStatus("live");
         else if (state === "CHANNEL_ERROR" || state === "TIMED_OUT" || state === "CLOSED") setStatus("offline");
       });
 
     return () => {
+      active = false;
       clearTimeout(timer);
       supabase.removeChannel(channel);
     };
   }, [serviceDate, router]);
 
-  const dot = status === "live" ? "bg-emerald-500" : status === "offline" ? "bg-red-500" : "bg-faint";
-  const text = status === "live" ? "Langsung" : status === "offline" ? "Terputus, muat ulang halaman" : "Menghubungkan…";
+  if (status !== "offline") return <span className="sr-only" aria-live="polite" />;
 
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs text-muted" aria-live="polite">
-      <span className={`h-2 w-2 rounded-full ${dot}`} aria-hidden />
-      {text}
-    </span>
+    <button
+      type="button"
+      onClick={() => window.location.reload()}
+      aria-live="polite"
+      className="btn btn-sm bg-warn-soft text-warn hover:brightness-95"
+    >
+      Antrean tidak terbarui · Muat ulang
+    </button>
   );
 }

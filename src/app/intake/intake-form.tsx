@@ -2,38 +2,33 @@
 
 import { useActionState } from "react";
 
-import { AiEstimateLoading } from "@/components/ai";
+import { CheckIcon } from "@/components/icons";
 import { registerRemote, type IntakeState } from "@/lib/intake/actions";
 
 export type DoctorOption = {
   id: string;
   name: string;
   room: string | null;
+  prefix: string;
   waiting: number;
   waitMinutes: number;
 };
 
-const FIELD =
-  "min-h-[48px] w-full rounded-[12px] border border-line bg-white px-3.5 py-2.5 text-base text-ink outline-none transition-colors placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15";
-const LABEL = "flex flex-col gap-1.5 text-sm font-medium text-ink";
-
-function waitLabel(d: DoctorOption): string {
-  if (d.waiting === 0) return "Tidak ada antrean";
-  return `${d.waiting} menunggu · ±${d.waitMinutes} menit`;
-}
+const LABEL = "flex flex-col gap-2 text-sm font-semibold text-ink";
+const HELP = "text-[13px] font-normal text-muted";
 
 export function IntakeForm({ doctors }: { doctors: DoctorOption[] }) {
   const [state, formAction, pending] = useActionState<IntakeState, FormData>(registerRemote, {});
   const v = state.values ?? {};
 
   return (
-    <form action={formAction} className="flex flex-col gap-5 rounded-[18px] border border-line bg-white p-5 shadow-card sm:p-6">
-      <fieldset className="flex flex-col gap-2">
-        <legend className="mb-1 text-sm font-medium">Pilih dokter</legend>
+    <form action={formAction} className="flex flex-col gap-7">
+      <fieldset className="flex flex-col gap-2.5">
+        <legend className="mb-2.5 text-sm font-semibold">Dokter</legend>
         {doctors.map((d, i) => (
           <label
             key={d.id}
-            className="flex min-h-[56px] cursor-pointer items-center gap-3 rounded-[12px] border border-line px-3.5 py-3 transition-colors has-[:checked]:border-brand has-[:checked]:bg-brand-soft"
+            className="group relative flex min-h-[64px] cursor-pointer items-center gap-3.5 rounded-[14px] bg-surface px-4 py-3 shadow-[inset_0_0_0_1px_var(--color-line)] transition-[box-shadow,background-color] duration-[var(--dur-1)] hover:shadow-[inset_0_0_0_1px_#c9ccec] has-[:checked]:bg-tint has-[:checked]:shadow-[inset_0_0_0_2px_var(--color-accent)] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent"
           >
             <input
               type="radio"
@@ -41,58 +36,83 @@ export function IntakeForm({ doctors }: { doctors: DoctorOption[] }) {
               value={d.id}
               required
               defaultChecked={v.doctorId ? v.doctorId === d.id : i === 0}
-              className="h-4 w-4 accent-[#2597D0]"
+              className="peer sr-only"
             />
-            <span className="flex min-w-0 flex-1 flex-col">
-              <span className="font-medium">{d.name}</span>
-              <span className="text-xs text-muted">{d.room}</span>
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] bg-tint font-mono text-[15px] font-semibold text-accent-strong group-has-[:checked]:bg-accent group-has-[:checked]:text-white">
+              {d.prefix}
             </span>
-            <span className="shrink-0 text-right text-xs tabular-nums text-muted">{waitLabel(d)}</span>
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="truncate font-semibold">{d.name}</span>
+              <span className="text-[13px] text-muted">{d.room}</span>
+            </span>
+            <span className="flex shrink-0 flex-col items-end text-right tabular-nums">
+              {d.waiting === 0 ? (
+                <span className="text-[13px] font-semibold text-ok">Tanpa antre</span>
+              ) : (
+                <>
+                  <span className="text-[13px] font-semibold">±{d.waitMinutes} mnt</span>
+                  <span className="text-xs text-muted">{d.waiting} antre</span>
+                </>
+              )}
+            </span>
+            <span className="absolute -right-1.5 -top-1.5 hidden h-5 w-5 place-items-center rounded-full bg-accent text-white group-has-[:checked]:grid">
+              <CheckIcon size={13} strokeWidth={2.5} />
+            </span>
           </label>
         ))}
       </fieldset>
 
-      <label className={LABEL}>
-        Nama lengkap
-        <input name="fullName" required maxLength={80} autoComplete="name" defaultValue={v.fullName} className={FIELD} />
-      </label>
+      <div className="flex flex-col gap-5">
+        <label className={LABEL}>
+          Nama lengkap
+          <input name="fullName" required maxLength={80} autoComplete="name" defaultValue={v.fullName} className="field" />
+        </label>
 
-      <label className={LABEL}>
-        Nomor WhatsApp
-        <input
-          name="phone"
-          required
-          inputMode="tel"
-          autoComplete="tel"
-          placeholder="0812 3456 7890"
-          defaultValue={v.phone}
-          className={FIELD}
-        />
-        <span className="text-xs font-normal text-muted">Untuk kabar saat giliran Anda sudah dekat.</span>
-      </label>
+        <label className={LABEL}>
+          Nomor WhatsApp
+          <input
+            name="phone"
+            required
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            placeholder="0812 3456 7890"
+            defaultValue={v.phone}
+            className="field"
+          />
+          <span className={HELP}>Kami kabari saat giliran Anda dekat.</span>
+        </label>
 
-      <label className={LABEL}>
-        Tanggal lahir <span className="font-normal text-muted">(opsional)</span>
-        <input name="birthDate" type="date" autoComplete="bday" defaultValue={v.birthDate} className={FIELD} />
-      </label>
+        <label className={LABEL}>
+          Keluhan
+          <textarea
+            name="complaint"
+            required
+            rows={3}
+            maxLength={500}
+            placeholder="Contoh: demam dan batuk sejak 2 hari"
+            defaultValue={v.complaint}
+            className="field resize-y"
+          />
+        </label>
 
-      <label className={LABEL}>
-        Keluhan
-        <textarea
-          name="complaint"
-          required
-          rows={3}
-          maxLength={500}
-          placeholder="Contoh: demam dan batuk sejak 2 hari"
-          defaultValue={v.complaint}
-          className={`${FIELD} resize-y`}
-        />
-      </label>
+        <label className={LABEL}>
+          <span>
+            Tanggal lahir <span className="font-normal text-muted">(opsional)</span>
+          </span>
+          <input name="birthDate" type="date" autoComplete="bday" defaultValue={v.birthDate} className="field" />
+        </label>
 
-      <label className="flex min-h-[44px] items-center gap-2.5 text-sm">
-        <input type="checkbox" name="isFollowUp" defaultChecked={v.isFollowUp === "on"} className="h-4 w-4 accent-[#2597D0]" />
-        Ini kunjungan kontrol (lanjutan pemeriksaan sebelumnya)
-      </label>
+        <label className="flex min-h-[48px] cursor-pointer items-center gap-3 rounded-[10px] bg-surface px-4 text-[15px] shadow-[inset_0_0_0_1px_var(--color-line)] has-[:checked]:bg-tint has-[:checked]:shadow-[inset_0_0_0_1px_var(--color-accent)]">
+          <input
+            type="checkbox"
+            name="isFollowUp"
+            defaultChecked={v.isFollowUp === "on"}
+            className="h-[18px] w-[18px] accent-[var(--color-accent)]"
+          />
+          Kontrol lanjutan
+        </label>
+      </div>
 
       {/* Hidden from people; bots fill it in. */}
       <div aria-hidden="true" className="absolute -left-[9999px] h-px w-px overflow-hidden">
@@ -103,24 +123,30 @@ export function IntakeForm({ doctors }: { doctors: DoctorOption[] }) {
       </div>
 
       {state.error ? (
-        <p role="alert" className="rounded-[12px] border border-[#F5B8B8] bg-danger-soft px-3.5 py-2.5 text-sm text-danger">
+        <p
+          role="alert"
+          className="rounded-[10px] bg-danger-soft px-4 py-3 text-sm font-medium text-danger shadow-[inset_0_0_0_1px_var(--color-danger-line)]"
+        >
           {state.error}
         </p>
       ) : null}
 
-      {pending ? (
-        <AiEstimateLoading
-          label="Membuat tiket dan menghitung estimasi…"
-          sublabel="Kami memperkirakan lama pemeriksaan untuk menghitung waktu tunggu Anda."
-        />
-      ) : (
-        <button
-          type="submit"
-          className="min-h-[52px] rounded-full bg-ink px-6 text-base font-semibold text-white transition-opacity hover:opacity-90 active:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-        >
-          Ambil nomor antrean
+      <div className="flex flex-col gap-3">
+        <button type="submit" disabled={pending} aria-busy={pending} className="btn btn-primary btn-lg w-full">
+          {pending ? (
+            <>
+              <span
+                aria-hidden
+                className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white motion-reduce:animate-none"
+              />
+              Membuat tiket…
+            </>
+          ) : (
+            "Ambil nomor antrean"
+          )}
         </button>
-      )}
+        <p className="text-center text-xs text-muted">Data Anda hanya untuk antrean klinik ini.</p>
+      </div>
     </form>
   );
 }

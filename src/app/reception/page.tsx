@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
 
-import { EstimateSourceBadge } from "@/components/ai";
+import { ChevronDownIcon } from "@/components/icons";
 import { ActionButton } from "@/components/queue/action-button";
 import { LiveRefresh } from "@/components/queue/live-refresh";
-import { StaffHeader } from "@/components/staff-header";
+import { PageTitle, StaffHeader } from "@/components/staff-header";
 import { requireStaff } from "@/lib/auth/dal";
-import { clinicToday, formatClinicTime, minutesUntil } from "@/lib/clinic-time";
+import { clinicToday, formatClinicDate, formatClinicTime, minutesUntil } from "@/lib/clinic-time";
 import { cancelTicket, checkIn } from "@/lib/queue/actions";
-import { TICKET_CHANNEL_LABEL, TICKET_STATUS_LABEL, ticketCode } from "@/lib/queue/labels";
+import { TICKET_STATUS_LABEL, ticketCode } from "@/lib/queue/labels";
 import { createClient } from "@/lib/supabase/server";
+import type { Database } from "@/lib/supabase/database.types";
 
 import { NewTicketForm } from "./new-ticket-form";
 
@@ -16,8 +17,107 @@ export const metadata: Metadata = {
   title: "Resepsionis · KlinikFlow",
 };
 
+type Status = Database["public"]["Enums"]["ticket_status"];
+
+const STATUS_CHIP: Record<Status, string> = {
+  waiting: "bg-tint text-accent-strong",
+  called: "bg-accent text-white",
+  in_consultation: "bg-ink text-white",
+  done: "bg-ok-soft text-ok",
+  cancelled: "bg-line-soft text-muted",
+  no_show: "bg-danger-soft text-danger",
+};
+
 // Receptionist view: today's queue of every doctor, with patient contact data.
-// The full receptionist screen (one-click walk-in, deferred states) builds on this.
+const ACTIVE: Status[] = ["waiting", "called", "in_consultation"];
+
+type Row = {
+  id: string;
+  ticket_number: number;
+  channel: Database["public"]["Enums"]["ticket_channel"];
+  status: Status;
+  defer_count: number;
+  checked_in_at: string | null;
+  estimated_call_at: string | null;
+  missed_turn_at: string | null;
+  patients: { full_name: string; phone: string | null } | null;
+};
+
+function QueueTable({ prefix, rows, muted = false }: { prefix: string; rows: Row[]; muted?: boolean }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className={`w-full min-w-[680px] text-left text-sm ${muted ? "text-muted" : ""}`}>
+        <thead className="text-xs text-muted">
+          <tr>
+            <th className="w-[88px] px-5 py-2.5 font-medium">Tiket</th>
+            <th className="px-5 py-2.5 font-medium">Pasien</th>
+            <th className="px-5 py-2.5 font-medium">Status</th>
+            <th className="whitespace-nowrap px-5 py-2.5 text-right font-medium">Dipanggil</th>
+            <th className="w-px px-5 py-2.5">
+              <span className="sr-only">Aksi</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((t) => {
+            const open = t.status === "waiting" || t.status === "called";
+            const notArrived = t.channel === "remote" && !t.checked_in_at && open;
+            return (
+              <tr key={t.id} className="border-t border-line-soft">
+                <td className="whitespace-nowrap px-5 py-3 font-mono font-semibold">{ticketCode(prefix, t.ticket_number)}</td>
+                <td className="px-5 py-3">
+                  <p className={muted ? "" : "font-semibold"}>{t.patients?.full_name}</p>
+                  <p className="whitespace-nowrap text-xs text-muted">
+                    {t.channel === "remote" ? "Online" : "Datang langsung"}
+                    {t.patients?.phone ? <span className="font-mono"> · {t.patients.phone}</span> : null}
+                  </p>
+                </td>
+                <td className="px-5 py-3">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_CHIP[t.status]}`}>
+                      {TICKET_STATUS_LABEL[t.status]}
+                    </span>
+                    {notArrived ? (
+                      <span className="whitespace-nowrap rounded-full bg-warn-soft px-2.5 py-0.5 text-xs font-semibold text-warn">
+                        {t.missed_turn_at ? "Terlewat" : "Belum tiba"}
+                      </span>
+                    ) : null}
+                    {t.defer_count > 0 && open ? (
+                      <span className="whitespace-nowrap rounded-full bg-warn-soft px-2.5 py-0.5 text-xs font-semibold text-warn">
+                        Ditunda {t.defer_count}×
+                      </span>
+                    ) : null}
+                  </div>
+                </td>
+                <td className="whitespace-nowrap px-5 py-3 text-right tabular-nums">
+                  {t.status === "waiting" && t.estimated_call_at ? (
+                    <>
+                      <span className="font-semibold">{formatClinicTime(t.estimated_call_at)}</span>
+                      <span className="block text-xs text-muted">±{minutesUntil(t.estimated_call_at)} mnt</span>
+                    </>
+                  ) : (
+                    "–"
+                  )}
+                </td>
+                <td className="px-5 py-3">
+                  {open ? (
+                    <div className="flex justify-end gap-2">
+                      {notArrived ? (
+                        <ActionButton action={checkIn.bind(null, t.id)} label="Tandai tiba" size="sm" variant="secondary" />
+                      ) : null}
+                      <ActionButton action={cancelTicket.bind(null, t.id)} label="Batalkan" size="sm" variant="danger" />
+                    </div>
+                  ) : null}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default async function ReceptionPage() {
   const staff = await requireStaff("receptionist");
   const supabase = await createClient();
@@ -28,111 +128,80 @@ export default async function ReceptionPage() {
     supabase
       .from("queue_tickets")
       .select(
-        "id, doctor_id, ticket_number, position, channel, status, predicted_minutes, prediction_source, defer_count, checked_in_at, estimated_call_at, missed_turn_at, patients (full_name, phone)",
+        "id, doctor_id, ticket_number, position, channel, status, predicted_minutes, defer_count, checked_in_at, estimated_call_at, missed_turn_at, patients (full_name, phone)",
       )
       .eq("service_date", today)
       .order("position"),
   ]);
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-6 py-10">
-      <StaffHeader staff={staff} title="Antrean hari ini" />
-      <LiveRefresh serviceDate={today} />
+    <>
+      <StaffHeader staff={staff} href="/reception" />
+      <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
+        <PageTitle title="Antrean hari ini" sub={formatClinicDate(today)} aside={<LiveRefresh serviceDate={today} />} />
 
-      {error ? <p className="text-red-700 dark:text-red-400">Gagal memuat antrean: {error.message}</p> : null}
+        {error ? (
+          <p role="alert" className="rounded-[10px] bg-danger-soft px-4 py-3 text-sm text-danger">
+            Antrean gagal dimuat. Muat ulang halaman.
+          </p>
+        ) : null}
 
-      <NewTicketForm
-        doctors={(doctors ?? []).map((d) => ({ id: d.id, label: `${d.ticket_prefix} · ${d.full_name} (${d.room})` }))}
-      />
+        <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
+          <div className="xl:sticky xl:top-24">
+            <NewTicketForm
+              doctors={(doctors ?? []).map((d) => ({
+                id: d.id,
+                prefix: d.ticket_prefix,
+                name: d.full_name,
+                room: d.room,
+              }))}
+            />
+          </div>
 
-      {doctors?.map((doctor) => {
-        const queue = tickets?.filter((t) => t.doctor_id === doctor.id) ?? [];
-        const waiting = queue.filter((t) => t.status === "waiting").length;
-        return (
-          <section key={doctor.id} className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 className="text-lg font-semibold">
-                {doctor.full_name} <span className="font-normal text-zinc-500">· {doctor.room}</span>
-              </h2>
-              <p className="text-sm text-zinc-500">
-                {waiting} menunggu · {queue.length} tiket
-              </p>
-            </div>
-            <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-zinc-50 text-zinc-500 dark:bg-zinc-900">
-                  <tr>
-                    <th className="px-3 py-2 font-medium">Tiket</th>
-                    <th className="px-3 py-2 font-medium">Pasien</th>
-                    <th className="px-3 py-2 font-medium">WhatsApp</th>
-                    <th className="px-3 py-2 font-medium">Jalur</th>
-                    <th className="px-3 py-2 font-medium">Status</th>
-                    <th className="px-3 py-2 font-medium">Estimasi</th>
-                    <th className="px-3 py-2 font-medium">Perkiraan dipanggil</th>
-                    <th className="px-3 py-2 font-medium">
-                      <span className="sr-only">Aksi</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                  {queue.map((t) => (
-                    <tr key={t.id}>
-                      <td className="px-3 py-2 font-mono">{ticketCode(doctor.ticket_prefix, t.ticket_number)}</td>
-                      <td className="px-3 py-2">{t.patients?.full_name}</td>
-                      <td className="px-3 py-2 font-mono text-xs">{t.patients?.phone ?? "–"}</td>
-                      <td className="px-3 py-2">
-                        {TICKET_CHANNEL_LABEL[t.channel]}
-                        {t.channel === "remote" && !t.checked_in_at ? (
-                          <span className="ml-1 text-xs text-amber-700 dark:text-amber-400">{t.missed_turn_at ? "(giliran terlewat, belum tiba)" : "(belum tiba)"}</span>
-                        ) : null}
-                      </td>
-                      <td className="px-3 py-2">
-                        {TICKET_STATUS_LABEL[t.status]}
-                        {t.defer_count > 0 ? (
-                          <span className="ml-1 text-xs text-amber-700 dark:text-amber-400">(ditunda {t.defer_count}×)</span>
-                        ) : null}
-                      </td>
-                      <td className="px-3 py-2">
-                        <span className="flex items-center gap-2">
-                          {t.predicted_minutes ?? "–"} mnt
-                          {t.prediction_source ? <EstimateSourceBadge source={t.prediction_source} compact /> : null}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        {t.status === "waiting" && t.estimated_call_at ? (
-                          <>
-                            {formatClinicTime(t.estimated_call_at)}{" "}
-                            <span className="text-zinc-500">(±{minutesUntil(t.estimated_call_at)} mnt)</span>
-                          </>
-                        ) : (
-                          "–"
-                        )}
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="flex flex-wrap justify-end gap-2">
-                          {t.channel === "remote" && !t.checked_in_at && (t.status === "waiting" || t.status === "called") ? (
-                            <ActionButton action={checkIn.bind(null, t.id)} label="Tiba" size="sm" variant="secondary" />
-                          ) : null}
-                          {t.status === "waiting" || t.status === "called" ? (
-                            <ActionButton action={cancelTicket.bind(null, t.id)} label="Batalkan" size="sm" variant="danger" />
-                          ) : null}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {queue.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="px-3 py-4 text-zinc-500">
-                        Belum ada tiket hari ini.
-                      </td>
-                    </tr>
+          <div className="flex flex-col gap-6">
+            {doctors?.map((doctor) => {
+              const queue = tickets?.filter((t) => t.doctor_id === doctor.id) ?? [];
+              const active = queue.filter((t) => ACTIVE.includes(t.status));
+              const closed = queue.filter((t) => !ACTIVE.includes(t.status));
+              const waiting = queue.filter((t) => t.status === "waiting").length;
+              return (
+                <section key={doctor.id} className="card overflow-hidden" aria-label={doctor.full_name}>
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line-soft px-5 py-4">
+                    <div className="flex items-center gap-3">
+                      <span className="grid h-10 w-10 place-items-center rounded-[10px] bg-tint font-mono text-[15px] font-semibold text-accent-strong">
+                        {doctor.ticket_prefix}
+                      </span>
+                      <div>
+                        <h2 className="font-bold">{doctor.full_name}</h2>
+                        <p className="text-[13px] text-muted">{doctor.room}</p>
+                      </div>
+                    </div>
+                    <p className="text-sm text-muted">
+                      <strong className="font-semibold tabular-nums text-ink">{waiting}</strong> menunggu
+                    </p>
+                  </div>
+
+                  {active.length ? (
+                    <QueueTable prefix={doctor.ticket_prefix} rows={active} />
+                  ) : (
+                    <p className="px-5 py-8 text-center text-sm text-muted">Tidak ada antrean aktif.</p>
+                  )}
+
+                  {closed.length ? (
+                    <details className="group border-t border-line-soft">
+                      <summary className="flex min-h-[48px] cursor-pointer list-none items-center justify-between px-5 text-sm font-semibold text-muted hover:text-ink [&::-webkit-details-marker]:hidden">
+                        Selesai & batal · {closed.length}
+                        <ChevronDownIcon size={16} className="transition-transform group-open:rotate-180" />
+                      </summary>
+                      <QueueTable prefix={doctor.ticket_prefix} rows={closed} muted />
+                    </details>
                   ) : null}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        );
-      })}
-    </main>
+                </section>
+              );
+            })}
+          </div>
+        </div>
+      </main>
+    </>
   );
 }

@@ -1,3 +1,3 @@
-import { PageLoading } from "@/components/page-loading";
+import { TicketLoading } from "@/components/page-loading";
 
-export default PageLoading;
+export default TicketLoading;

@@ -11,7 +11,7 @@ export function LoginForm() {
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
-      <label className="flex flex-col gap-1.5 text-sm font-medium">
+      <label className="flex flex-col gap-1.5 text-sm font-semibold">
         Email
         <input
           name="email"
@@ -19,32 +19,30 @@ export function LoginForm() {
           autoComplete="username"
           required
           defaultValue={state.email}
-          className="min-h-[48px] rounded-[12px] border border-line bg-white px-3.5 py-2.5 text-base font-normal text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
+          aria-invalid={state.error ? true : undefined}
+          className="field"
         />
       </label>
 
-      <label className="flex flex-col gap-1.5 text-sm font-medium">
+      <label className="flex flex-col gap-1.5 text-sm font-semibold">
         Kata sandi
         <input
           name="password"
           type="password"
           autoComplete="current-password"
           required
-          className="min-h-[48px] rounded-[12px] border border-line bg-white px-3.5 py-2.5 text-base font-normal text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
+          aria-invalid={state.error ? true : undefined}
+          className="field"
         />
       </label>
 
       {state.error ? (
-        <p role="alert" className="text-sm text-danger">
+        <p role="alert" className="rounded-[10px] bg-danger-soft px-3.5 py-2.5 text-sm font-medium text-danger">
           {state.error}
         </p>
       ) : null}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="mt-2 min-h-[52px] rounded-full bg-ink px-6 text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-      >
+      <button type="submit" disabled={pending} aria-busy={pending} className="btn btn-primary btn-lg mt-2 w-full">
         {pending ? "Memproses…" : "Masuk"}
       </button>
     </form>

@@ -5,15 +5,16 @@ import { useActionState } from "react";
 import type { ActionResult } from "@/lib/queue/actions";
 
 const VARIANTS = {
-  primary: "bg-ink text-white hover:opacity-90 active:opacity-80",
-  secondary: "border border-line bg-white text-ink hover:bg-surface",
-  danger: "border border-[#F5B8B8] bg-white text-danger hover:bg-danger-soft",
+  primary: "btn-primary",
+  secondary: "btn-secondary",
+  danger: "btn-danger",
+  onAccent: "btn-on-accent",
 } as const;
 
 const SIZES = {
-  lg: "min-h-[52px] px-6 text-base",
-  md: "min-h-[44px] px-5 text-sm",
-  sm: "min-h-[32px] px-3 text-xs",
+  lg: "btn-lg",
+  md: "",
+  sm: "btn-sm",
 } as const;
 
 // A button that runs one queue Server Action (already bound to its ticket or
@@ -25,6 +26,7 @@ export function ActionButton({
   variant = "primary",
   size = "md",
   className = "",
+  disabled = false,
 }: {
   action: () => Promise<ActionResult>;
   label: string;
@@ -32,20 +34,22 @@ export function ActionButton({
   variant?: keyof typeof VARIANTS;
   size?: keyof typeof SIZES;
   className?: string;
+  disabled?: boolean;
 }) {
   const [state, formAction, pending] = useActionState<ActionResult>(() => action(), { ok: true });
 
   return (
-    <form action={formAction} className={`inline-flex flex-col items-start gap-1.5 ${className}`.trim()}>
+    <form action={formAction} className={`inline-flex flex-col items-stretch gap-1.5 ${className}`.trim()}>
       <button
         type="submit"
-        disabled={pending}
-        className={`inline-flex w-full items-center justify-center rounded-full font-semibold transition-[opacity,background-color] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:opacity-60 ${VARIANTS[variant]} ${SIZES[size]}`}
+        disabled={pending || disabled}
+        aria-busy={pending}
+        className={`btn w-full ${VARIANTS[variant]} ${SIZES[size]}`}
       >
         {pending ? pendingLabel : label}
       </button>
       {!state.ok && state.error ? (
-        <span role="alert" className="text-xs text-danger">
+        <span role="alert" className="text-xs font-medium text-danger">
           {state.error}
         </span>
       ) : null}

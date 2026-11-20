@@ -56,16 +56,16 @@ export default function AiComponentsPreviewPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#F5F5F5] px-4 py-10 text-[#070709] sm:px-8">
+    <main className="min-h-screen bg-canvas px-4 py-10 text-ink sm:px-8">
       <div className="mx-auto max-w-4xl space-y-10">
-        <header className="space-y-2 border-b border-[#D9DEE5] pb-6">
-          <p className="text-xs font-medium text-[#176B96]">
+        <header className="space-y-2 border-b border-line pb-6">
+          <p className="text-xs font-medium text-accent-strong">
             Dev Preview (Synthetic Data Only)
           </p>
-          <h1 className="text-3xl font-semibold tracking-[-0.04em] text-[#070709]">
+          <h1 className="text-3xl font-semibold tracking-[-0.04em] text-ink">
             KlinikFlow AI UI Components
           </h1>
-          <p className="max-w-2xl text-sm leading-[1.5] text-[#60606C]">
+          <p className="max-w-2xl text-sm leading-[1.5] text-muted">
             Halaman pratinjau sementara untuk memeriksa tampilan, kontras, dan seluruh state
             komponen di <code className="rounded bg-white px-1.5 py-0.5 text-xs">src/components/ai/</code>.
           </p>
@@ -75,7 +75,7 @@ export default function AiComponentsPreviewPage() {
           <h2 id="badges-heading" className="text-lg font-semibold tracking-[-0.02em]">
             1. EstimateSourceBadge
           </h2>
-          <div className="flex flex-wrap items-center gap-3 rounded-[18px] border border-[#D9DEE5] bg-white p-5">
+          <div className="flex flex-wrap items-center gap-3 rounded-[20px] border border-line bg-white p-5">
             <EstimateSourceBadge source="ai" />
             <EstimateSourceBadge source="ai" confidence={0.92} showConfidence />
             <EstimateSourceBadge source="fallback" />
@@ -88,10 +88,10 @@ export default function AiComponentsPreviewPage() {
           <h2 id="loading-heading" className="text-lg font-semibold tracking-[-0.02em]">
             2. AiEstimateLoading
           </h2>
-          <div className="space-y-4 rounded-[18px] border border-[#D9DEE5] bg-white p-5">
+          <div className="space-y-4 rounded-[20px] border border-line bg-white p-5">
             <AiEstimateLoading />
             <div>
-              <p className="mb-2 text-xs font-medium text-[#60606C]">Compact row variant</p>
+              <p className="mb-2 text-xs font-medium text-muted">Compact row variant</p>
               <AiEstimateLoading compact label="Menghitung estimasi..." />
             </div>
           </div>
@@ -104,36 +104,36 @@ export default function AiComponentsPreviewPage() {
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <div className="space-y-2">
-              <p className="text-xs font-medium text-[#60606C]">AI Estimate Ready</p>
+              <p className="text-xs font-medium text-muted">AI Estimate Ready</p>
               <DoctorSummaryCard ticket={SYNTHETIC_AI_TICKET} />
             </div>
 
             <div className="space-y-2">
-              <p className="text-xs font-medium text-[#60606C]">Fallback Mode Active</p>
+              <p className="text-xs font-medium text-muted">Fallback Mode Active</p>
               <DoctorSummaryCard ticket={SYNTHETIC_FALLBACK_TICKET} />
             </div>
 
             <div className="space-y-2">
-              <p className="text-xs font-medium text-[#60606C]">Loading Estimate</p>
+              <p className="text-xs font-medium text-muted">Loading Estimate</p>
               <DoctorSummaryCard ticket={SYNTHETIC_LOADING_TICKET} />
             </div>
 
             <div className="space-y-2">
-              <p className="text-xs font-medium text-[#60606C]">Empty State (No Selection)</p>
+              <p className="text-xs font-medium text-muted">Empty State (No Selection)</p>
               <DoctorSummaryCard ticket={null} />
             </div>
           </div>
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-[#60606C]">
+              <p className="text-xs font-medium text-muted">
                 Error State (Interactive Retry Demo)
               </p>
               {errorCardState === "recovered" ? (
                 <button
                   type="button"
                   onClick={() => setErrorCardState("error")}
-                  className="min-h-[36px] cursor-pointer rounded-full border border-[#BEBECC] bg-white px-3.5 text-xs font-medium text-[#070709] hover:bg-[#F5F5F5] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2597D0]"
+                  className="min-h-[36px] cursor-pointer rounded-full border border-[#BEBECC] bg-white px-3.5 text-xs font-medium text-ink hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2597D0]"
                 >
                   Reset ke state error
                 </button>

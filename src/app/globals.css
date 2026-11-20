@@ -1,40 +1,51 @@
 @import "tailwindcss";
 
-/* KlinikFlow is light-only (clinic screens, shared AI components). The dark
-   variant only applies inside an explicit .dark class, which the app never sets. */
+/* KlinikFlow is light-only. The dark variant only applies inside an explicit
+   .dark class, which the app never sets. See DESIGN.md for the system. */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Design tokens, shared with the AI components in src/components/ai.
-   Use as Tailwind classes: text-ink, text-muted, bg-surface, border-line, bg-brand, ...
-   Plain @theme (not inline) so each token also exists as a CSS variable. */
+/* Design tokens. Use as Tailwind classes: text-ink, text-muted, bg-tint,
+   bg-accent, border-line, ... Plain @theme so each also exists as a CSS variable. */
 @theme {
-  --color-ink: #070709;
-  --color-muted: #60606c;
-  --color-faint: #8b8b8b;
-  --color-line: #d9dee5;
-  --color-line-soft: #e5e8ec;
-  --color-surface: #f5f5f5;
-  --color-canvas: #fafbfc;
-  --color-brand: #2597d0;
-  --color-brand-strong: #176b96;
-  --color-brand-soft: #edf6fc;
-  --color-warn: #92400e;
-  --color-warn-soft: #fef3c7;
-  --color-warn-line: #f3cc7a;
-  --color-danger: #991b1b;
-  --color-danger-soft: #fee2e2;
-  --color-ok: #166534;
-  --color-ok-soft: #dcfce7;
+  --color-ink: #122056;
+  --color-muted: #59618a;
+  --color-faint: #8c92b3;
+  --color-line: #dfe1f2;
+  --color-line-soft: #ecedf8;
+  --color-canvas: #fafafd;
+  --color-surface: #ffffff;
+  --color-tint: #eeeffd;
+  --color-tint-strong: #e2e4fb;
+  --color-accent: #5b65dc;
+  --color-accent-strong: #4750c9;
+  --color-accent-fg: #ffffff;
 
-  --shadow-card: 0 17px 37px rgba(16, 55, 132, 0.03), 0 4px 12px rgba(16, 55, 132, 0.04);
+  --color-ok: #12703a;
+  --color-ok-soft: #e5f5eb;
+  --color-warn: #8a4b00;
+  --color-warn-soft: #fff4dd;
+  --color-warn-line: #f2d6a2;
+  --color-danger: #b42318;
+  --color-danger-soft: #fdecea;
+  --color-danger-line: #f5c2bc;
+
+  --radius-control: 10px;
+  --radius-card: 20px;
+
+  --shadow-card: 0 1px 2px rgb(18 32 86 / 0.04), 0 8px 24px rgb(18 32 86 / 0.06);
+
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-1: 120ms;
+  --dur-2: 200ms;
+  --dur-3: 320ms;
 }
 
 /* Tokens that point at other variables stay inline. */
 @theme inline {
   --color-background: var(--color-canvas);
   --color-foreground: var(--color-ink);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-jakarta);
+  --font-mono: var(--font-plex-mono);
 }
 
 :root {
@@ -44,5 +55,199 @@
 body {
   background: var(--color-canvas);
   color: var(--color-ink);
-  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-jakarta), ui-sans-serif, sans-serif;
+  font-feature-settings: "ss01";
+}
+
+::selection {
+  background: var(--color-tint-strong);
+}
+
+@layer components {
+  /* ---------- Buttons: ranked by importance, not colored by meaning ---------- */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 44px;
+    padding-inline: 1.25rem;
+    border-radius: var(--radius-control);
+    font-weight: 600;
+    font-size: 0.9375rem;
+    line-height: 1.2;
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+      background-color var(--dur-1) var(--ease-out),
+      transform var(--dur-1) var(--ease-out),
+      opacity var(--dur-1) var(--ease-out);
+  }
+  .btn:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+  .btn:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+  .btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+  .btn-lg {
+    min-height: 52px;
+    padding-inline: 1.5rem;
+    font-size: 1rem;
+  }
+  .btn-sm {
+    min-height: 32px;
+    padding-inline: 0.75rem;
+    font-size: 0.8125rem;
+    border-radius: 8px;
+  }
+  .btn-primary {
+    background: var(--color-accent);
+    color: var(--color-accent-fg);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--color-accent-strong);
+  }
+  .btn-secondary {
+    background: var(--color-tint);
+    color: var(--color-ink);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    background: var(--color-tint-strong);
+  }
+  .btn-quiet {
+    background: transparent;
+    color: var(--color-muted);
+  }
+  .btn-quiet:hover:not(:disabled) {
+    background: var(--color-tint);
+    color: var(--color-ink);
+  }
+  .btn-danger {
+    background: var(--color-surface);
+    color: var(--color-danger);
+    box-shadow: inset 0 0 0 1px var(--color-danger-line);
+  }
+  .btn-danger:hover:not(:disabled) {
+    background: var(--color-danger-soft);
+  }
+  .btn-on-accent {
+    background: var(--color-surface);
+    color: var(--color-accent-strong);
+  }
+  .btn-on-accent:hover:not(:disabled) {
+    background: var(--color-tint);
+  }
+
+  /* ---------- Form fields ---------- */
+  .field {
+    width: 100%;
+    min-height: 48px;
+    padding: 0.625rem 0.875rem;
+    border-radius: var(--radius-control);
+    border: 1px solid var(--color-line);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font-size: 1rem;
+    font-weight: 400;
+    outline: none;
+    transition:
+      border-color var(--dur-1) var(--ease-out),
+      box-shadow var(--dur-1) var(--ease-out);
+  }
+  .field::placeholder {
+    color: var(--color-faint);
+  }
+  .field:hover {
+    border-color: #c9ccec;
+  }
+  .field:focus {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 4px rgb(91 101 220 / 0.16);
+  }
+  .field[aria-invalid="true"] {
+    border-color: var(--color-danger);
+  }
+
+  .card {
+    background: var(--color-surface);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+  }
+
+  /* ---------- Signature: the perforated ticket ----------
+     Body and stub are separate boxes, each masked with two half-circle notches
+     on the shared edge, so the notches line up whatever the content height.
+     The wrapper casts the shadow with drop-shadow so the notches stay see-through. */
+  .ticket {
+    --notch: 13px;
+    filter: drop-shadow(0 1px 1px rgb(18 32 86 / 0.05)) drop-shadow(0 14px 28px rgb(18 32 86 / 0.09));
+  }
+  .ticket-body,
+  .ticket-stub {
+    position: relative;
+    background: var(--color-surface);
+  }
+  .ticket-body {
+    border-radius: var(--radius-card) var(--radius-card) 0 0;
+    mask:
+      radial-gradient(circle var(--notch) at 0 100%, #0000 98%, #000) left / 51% 100% no-repeat,
+      radial-gradient(circle var(--notch) at 100% 100%, #0000 98%, #000) right / 51% 100% no-repeat;
+  }
+  .ticket-body[data-solo] {
+    border-radius: var(--radius-card);
+    mask: none;
+  }
+  .ticket-stub {
+    border-radius: 0 0 var(--radius-card) var(--radius-card);
+    mask:
+      radial-gradient(circle var(--notch) at 0 0, #0000 98%, #000) left / 51% 100% no-repeat,
+      radial-gradient(circle var(--notch) at 100% 0, #0000 98%, #000) right / 51% 100% no-repeat;
+  }
+  .ticket-stub::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: calc(var(--notch) + 8px);
+    right: calc(var(--notch) + 8px);
+    border-top: 2px dashed var(--color-line);
+  }
+  .ticket-stub[data-tone="accent"] {
+    background: var(--color-accent);
+    color: var(--color-accent-fg);
+  }
+  .ticket-stub[data-tone="accent"]::before {
+    border-top-color: rgb(255 255 255 / 0.45);
+  }
+  .ticket-stub[data-tone="ink"] {
+    background: var(--color-ink);
+    color: #fff;
+  }
+  .ticket-stub[data-tone="ink"]::before {
+    border-top-color: rgb(255 255 255 / 0.3);
+  }
+
+  .enter-rise {
+    animation: rise var(--dur-3) var(--ease-out) both;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

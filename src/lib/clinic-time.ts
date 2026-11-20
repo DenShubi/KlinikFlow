@@ -14,6 +14,17 @@ export function minutesUntil(value: string | null | undefined, now: number = Dat
   return Math.max(0, Math.round((new Date(value).getTime() - now) / 60000));
 }
 
+// "Jum, 20 Nov 2026" style date for a YYYY-MM-DD service date.
+export function formatClinicDate(serviceDate: string): string {
+  return new Intl.DateTimeFormat("id-ID", {
+    timeZone: "UTC",
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(`${serviceDate}T00:00:00Z`));
+}
+
 // "09.41" style time in the clinic time zone.
 export function formatClinicTime(value: string | null | undefined): string {
   if (!value) return "–";

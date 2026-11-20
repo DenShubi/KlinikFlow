@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
 
+import { Brand } from "@/components/brand";
+import { ArrowLeftIcon } from "@/components/icons";
 import { clinicToday, minutesUntil } from "@/lib/clinic-time";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -38,36 +40,37 @@ export default async function IntakePage() {
       id: d.id,
       name: d.full_name,
       room: d.room,
+      prefix: d.ticket_prefix,
       waiting: waiting.length,
       waitMinutes: lastEnd ? (minutesUntil(new Date(lastEnd).toISOString()) ?? 0) : 0,
     };
   });
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-8 sm:py-12">
-      <header className="flex flex-col gap-2">
-        <Link href="/" className="text-sm font-medium text-brand-strong">
-          KlinikFlow
+    <div className="flex flex-1 flex-col">
+      <header className="mx-auto flex w-full max-w-[480px] items-center justify-between px-4 pt-4">
+        <Link href="/" className="btn btn-quiet -ml-3 px-3" aria-label="Kembali ke beranda">
+          <ArrowLeftIcon />
         </Link>
-        <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.03em]">Ambil antrean dari rumah</h1>
-        <p className="text-[15px] leading-relaxed text-muted">
-          Daftar sekarang, lalu pantau giliran Anda dari ponsel. Kami kabari lewat WhatsApp saat giliran Anda
-          sudah dekat, jadi Anda bisa datang tepat waktu.
-        </p>
+        <Brand />
+        <span className="w-11" aria-hidden />
       </header>
 
-      {options.length === 0 ? (
-        <p className="rounded-[12px] border border-line bg-white p-4 text-sm text-muted">
-          Belum ada dokter yang praktik saat ini.
-        </p>
-      ) : (
-        <IntakeForm doctors={options} />
-      )}
+      <main className="mx-auto flex w-full max-w-[480px] flex-1 flex-col gap-6 px-4 pb-12 pt-6">
+        <div className="flex flex-col gap-1.5">
+          <h1 className="text-[31px] font-extrabold leading-tight tracking-[-0.035em]">Ambil antrean</h1>
+          <p className="text-muted">Nomor Anda langsung jadi setelah daftar.</p>
+        </div>
 
-      <p className="text-xs leading-relaxed text-faint">
-        Data Anda hanya dipakai untuk antrean di klinik ini. Estimasi waktu bisa berubah mengikuti pemeriksaan
-        pasien sebelumnya.
-      </p>
-    </main>
+        {options.length === 0 ? (
+          <div className="card px-5 py-8 text-center">
+            <p className="font-semibold">Belum ada dokter praktik</p>
+            <p className="mt-1 text-sm text-muted">Coba lagi nanti.</p>
+          </div>
+        ) : (
+          <IntakeForm doctors={options} />
+        )}
+      </main>
+    </div>
   );
 }
