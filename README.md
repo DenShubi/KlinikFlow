@@ -14,7 +14,7 @@ is **synthetic**.
 
 ## Try the demo
 
-**Live demo:** _link added after deployment_
+**Live demo:** <https://klinik-flow.vercel.app>
 
 | Role | Email | Opens |
 | --- | --- | --- |
