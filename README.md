@@ -20,6 +20,9 @@ queue stalls.
 
 - **One hybrid queue.** Walk-in and remote patients are merged into a single
   ordered queue that the receptionist, the doctor and the patient all see.
+  Remote patients keep their place if they arrive in time; if their turn
+  passes before they arrive, they rejoin two places behind the patients
+  already waiting in the room.
 - **Live updates.** When the doctor calls the next patient, every open screen
   updates within seconds, so no one has to refresh.
 - **Wait estimates.** Each consultation's expected length is estimated from the
@@ -148,8 +151,8 @@ role, stored in the `profiles` table, which only trusted server code can change.
 
 | Role | Signs in to | Can see | Can change |
 | --- | --- | --- | --- |
-| Receptionist | `/reception` | Every doctor's queue, all patients with WhatsApp numbers, sent messages | Add and edit patients and tickets |
-| Doctor | `/doctor` | Only their own queue and the patients in it, with complaints and AI summaries | Only tickets in their own queue |
+| Receptionist | `/reception` | Every doctor's queue, all patients with WhatsApp numbers, sent messages | Add and edit patients; add tickets, mark arrivals, cancel (through the queue functions) |
+| Doctor | `/doctor` | Only their own queue and the patients in it, with complaints and AI summaries | Call, start and finish patients in their own queue (through the queue functions) |
 
 The rules are enforced three times: the proxy sends signed-out visitors to
 `/login`, each page checks the role (`src/lib/auth/dal.ts`), and row-level
@@ -185,16 +188,38 @@ everything it created, so today's queue is not touched.
 Every queue change goes through a database function
 ([`queue_engine` migration](supabase/migrations/20261120111527_queue_engine.sql)),
 so ticket numbers, positions, events and wait estimates stay consistent even
-when two people click at the same moment.
+when two people click at the same moment. Staff cannot edit queue rows
+directly; the functions check each caller's role themselves.
 
 | Function | Who | What it does |
 | --- | --- | --- |
 | `queue_create_ticket` | Receptionist, server | Adds a ticket at the end of a doctor's queue with the next ticket number |
-| `queue_check_in` | Staff | Marks a remote patient as arrived |
-| `queue_call_next` | Doctor (own queue), receptionist | Calls the next patient in line who is at the clinic; remote patients who have not arrived keep their place |
+| `queue_check_in` | Staff | Marks a remote patient as arrived; a patient who missed their turn rejoins (see below) |
+| `queue_call_next` | Doctor (own queue), receptionist | Calls the next patient in line who is at the clinic; remote patients ahead who have not arrived miss their turn |
 | `queue_start_consultation` | Doctor, receptionist | The called patient is with the doctor |
 | `queue_finish_consultation` | Doctor, receptionist | Ends the consultation; `actual_minutes` is saved |
 | `queue_cancel_ticket` | Doctor, receptionist | Removes a waiting or called ticket |
+
+### Hybrid synchronizer
+
+Walk-in and remote patients share one queue, numbered in the order they
+register, at the desk or from home
+([`hybrid_synchronizer` migration](supabase/migrations/20261120115246_hybrid_synchronizer.sql)).
+Three rules keep the two in step:
+
+1. **On time.** A remote patient who checks in at the desk before their turn
+   keeps their place.
+2. **Missed turn.** When the doctor calls the next patient and a remote patient
+   ahead has not arrived, that patient misses their turn. They stop counting in
+   everyone else's wait estimate, and their ticket page asks them to come in.
+3. **Rejoin.** When they arrive, they join the queue two places behind the
+   patients who are at the clinic at that moment. Walk-ins who waited in the
+   room are never pushed back by someone who was not there.
+
+Example: queue A-001 (walk-in), A-002 (remote), A-003, A-004 (walk-in). After
+A-001, the doctor calls next while A-002 is still at home, so A-003 is called
+and A-002 misses its turn. When A-002 arrives, the order becomes A-003 (with
+the doctor), A-004, A-002.
 
 **Wait estimate.** After every change, each waiting patient's
 `estimated_call_at` is recalculated: the remaining time of the current

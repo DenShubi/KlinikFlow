@@ -211,6 +211,7 @@ export type Database = {
           estimated_call_at: string | null
           id: string
           is_follow_up: boolean
+          missed_turn_at: string | null
           patient_id: string
           position: number
           predicted_minutes: number | null
@@ -240,6 +241,7 @@ export type Database = {
           estimated_call_at?: string | null
           id?: string
           is_follow_up?: boolean
+          missed_turn_at?: string | null
           patient_id: string
           position: number
           predicted_minutes?: number | null
@@ -269,6 +271,7 @@ export type Database = {
           estimated_call_at?: string | null
           id?: string
           is_follow_up?: boolean
+          missed_turn_at?: string | null
           patient_id?: string
           position?: number
           predicted_minutes?: number | null
@@ -330,6 +333,7 @@ export type Database = {
           estimated_call_at: string | null
           id: string
           is_follow_up: boolean
+          missed_turn_at: string | null
           patient_id: string
           position: number
           predicted_minutes: number | null
@@ -368,6 +372,7 @@ export type Database = {
           estimated_call_at: string | null
           id: string
           is_follow_up: boolean
+          missed_turn_at: string | null
           patient_id: string
           position: number
           predicted_minutes: number | null
@@ -406,6 +411,7 @@ export type Database = {
           estimated_call_at: string | null
           id: string
           is_follow_up: boolean
+          missed_turn_at: string | null
           patient_id: string
           position: number
           predicted_minutes: number | null
@@ -456,6 +462,7 @@ export type Database = {
           estimated_call_at: string | null
           id: string
           is_follow_up: boolean
+          missed_turn_at: string | null
           patient_id: string
           position: number
           predicted_minutes: number | null
@@ -494,6 +501,7 @@ export type Database = {
           estimated_call_at: string | null
           id: string
           is_follow_up: boolean
+          missed_turn_at: string | null
           patient_id: string
           position: number
           predicted_minutes: number | null
@@ -532,6 +540,7 @@ export type Database = {
           estimated_call_at: string | null
           id: string
           is_follow_up: boolean
+          missed_turn_at: string | null
           patient_id: string
           position: number
           predicted_minutes: number | null
@@ -570,6 +579,8 @@ export type Database = {
         | "estimate_updated"
         | "cancelled"
         | "no_show"
+        | "missed_turn"
+        | "rejoined"
       ticket_channel: "walk_in" | "remote"
       ticket_status:
         | "waiting"
@@ -719,6 +730,8 @@ export const Constants = {
         "estimate_updated",
         "cancelled",
         "no_show",
+        "missed_turn",
+        "rejoined",
       ],
       ticket_channel: ["walk_in", "remote"],
       ticket_status: [

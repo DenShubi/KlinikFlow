@@ -41,7 +41,7 @@ export default async function DoctorPage() {
     supabase
       .from("queue_tickets")
       .select(
-        "id, ticket_number, position, status, channel, checked_in_at, called_at, started_at, estimated_call_at, actual_minutes, complaint, is_follow_up, predicted_minutes, prediction_source, prediction_confidence, prediction_model, ai_summary, defer_count, patients (full_name, birth_date)",
+        "id, ticket_number, position, status, channel, checked_in_at, called_at, started_at, estimated_call_at, actual_minutes, complaint, is_follow_up, predicted_minutes, prediction_source, prediction_confidence, prediction_model, ai_summary, defer_count, missed_turn_at, patients (full_name, birth_date)",
       )
       .eq("doctor_id", staff.doctorId)
       .eq("service_date", today)
@@ -62,7 +62,7 @@ export default async function DoctorPage() {
   const avg = (xs: number[]) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null);
   const avgActual = avg(done.map((t) => Number(t.actual_minutes ?? 0)).filter((m) => m > 0));
   const avgPredicted = avg(done.map((t) => t.predicted_minutes ?? FALLBACK_MINUTES));
-  const last = waiting.at(-1);
+  const last = waiting.filter((t) => t.estimated_call_at).at(-1);
   const queueEnds = last?.estimated_call_at
     ? new Date(Date.parse(last.estimated_call_at) + (last.predicted_minutes ?? FALLBACK_MINUTES) * 60000).toISOString()
     : null;
@@ -202,7 +202,9 @@ export default async function DoctorPage() {
                       ) : null}
                       {t.is_follow_up ? <Tag>Kontrol</Tag> : null}
                       {age !== undefined ? <Tag>{age} thn</Tag> : null}
-                      {!t.checked_in_at ? <Tag tone="warn">Belum tiba</Tag> : null}
+                      {!t.checked_in_at ? (
+                        <Tag tone="warn">{t.missed_turn_at ? "Terlewat, belum tiba" : "Belum tiba"}</Tag>
+                      ) : null}
                       {t.defer_count > 0 ? <Tag tone="warn">Ditunda {t.defer_count}×</Tag> : null}
                     </div>
                   </div>

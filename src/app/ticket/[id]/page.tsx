@@ -107,6 +107,18 @@ function Banner({ title, text }: { title: string; text: string }) {
 }
 
 function WaitingBlock({ t }: { t: TicketPublicStatus }) {
+  if (t.missed_turn) {
+    return (
+      <div role="status" className="flex flex-col gap-2 rounded-[14px] border border-warn-line bg-warn-soft px-4 py-4 text-warn">
+        <p className="text-lg font-semibold">Giliran Anda terlewat</p>
+        <p className="text-sm leading-relaxed">
+          Giliran Anda tiba saat Anda belum di klinik. Segera datang dan tunjukkan halaman ini ke resepsionis. Anda
+          akan masuk lagi ke antrean di belakang {t.rejoin_offset} pasien yang sudah hadir.
+        </p>
+      </div>
+    );
+  }
+
   const minutes = minutesUntil(t.estimated_call_at);
   const arriveBy = t.estimated_call_at
     ? new Date(Date.parse(t.estimated_call_at) - ARRIVE_EARLY_MINUTES * 60000).toISOString()

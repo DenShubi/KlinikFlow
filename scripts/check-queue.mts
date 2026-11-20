@@ -6,7 +6,8 @@
 //   npm run test:queue
 //
 // Works on a far-future test date (2099-01-01) so today's demo queue is not
-// touched, and deletes everything it created at the end.
+// touched (plus 2099-01-02 for the hybrid synchronizer), and deletes
+// everything it created at the end.
 // Needs in .env.local: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
 // SUPABASE_SECRET_KEY, DEMO_STAFF_PASSWORD (run `npm run staff:seed` first).
 
@@ -17,6 +18,7 @@ import type { Database } from "../src/lib/supabase/database.types";
 type Client = SupabaseClient<Database>;
 
 const TEST_DATE = "2099-01-01";
+const SYNC_DATE = "2099-01-02";
 const TEST_TAG = "[test:queue]";
 
 function requireEnv(name: string): string {
@@ -83,7 +85,7 @@ async function main() {
   if (!docA) throw new Error("Doctor A not found; load the seed.");
 
   // Clean leftovers from an interrupted earlier run.
-  await admin.from("queue_tickets").delete().eq("service_date", TEST_DATE);
+  await admin.from("queue_tickets").delete().in("service_date", [TEST_DATE, SYNC_DATE]);
   await admin.from("patients").delete().like("full_name", `${TEST_TAG}%`);
 
   const { data: patients, error: patientError } = await receptionist
@@ -185,11 +187,50 @@ async function main() {
     check("patient received live broadcasts for the queue", patientEvents.length > 0, `${patientEvents.length} messages`);
     const leaked = JSON.stringify(patientEvents).includes(TEST_TAG);
     check("broadcasts carry no patient data", !leaked);
+
+    console.log("\nHybrid synchronizer (walk-in and remote in one queue)");
+    const mk = (i: number, channel: "walk_in" | "remote") =>
+      receptionist.rpc("queue_create_ticket", {
+        p_doctor_id: docA,
+        p_patient_id: patients[i % 3].id,
+        p_channel: channel,
+        p_complaint: `${TEST_TAG} Kontrol`,
+        p_predicted_minutes: 10,
+        p_prediction_source: "fallback",
+        p_service_date: SYNC_DATE,
+      });
+    const h1 = await mk(0, "walk_in");
+    const h2 = await mk(1, "remote");
+    await mk(2, "walk_in");
+    await mk(0, "walk_in");
+    const order = async () => {
+      const { data } = await admin
+        .from("queue_tickets")
+        .select("ticket_number")
+        .eq("service_date", SYNC_DATE)
+        .in("status", ["waiting", "called"])
+        .order("position");
+      return JSON.stringify(data?.map((t) => t.ticket_number));
+    };
+    await doctorA.rpc("queue_call_next", { p_doctor_id: docA, p_service_date: SYNC_DATE });
+    await doctorA.rpc("queue_start_consultation", { p_ticket_id: h1.data!.id });
+    await doctorA.rpc("queue_finish_consultation", { p_ticket_id: h1.data!.id });
+    const next = await doctorA.rpc("queue_call_next", { p_doctor_id: docA, p_service_date: SYNC_DATE });
+    check("absent remote #2 is passed; walk-in #3 is called", next.data?.ticket_number === 3, next.error?.message);
+    const { data: missedRaw } = await patient.rpc("ticket_public_status", { p_ticket_id: h2.data!.id });
+    const missed = missedRaw as { missed_turn?: boolean; estimated_call_at?: string | null } | null;
+    check("remote #2 sees 'missed turn' and has no estimate", missed?.missed_turn === true && missed.estimated_call_at === null);
+    const late = await receptionist.rpc("queue_check_in", { p_ticket_id: h2.data!.id });
+    check("late #2 checks in", !!late.data?.checked_in_at, late.error?.message);
+    const after = await order();
+    check("#2 rejoins behind the patients present (#3 called, #4, then #2)", after === "[3,4,2]", after);
+    const direct = await receptionist.from("queue_tickets").update({ position: 1 }).eq("id", h2.data!.id).select("id");
+    check("tickets can no longer be edited outside the queue functions", !!direct.error, direct.error?.code);
   } finally {
     await patient.removeChannel(patientChannel);
     await recLive.close();
     await docBLive.close();
-    await admin.from("queue_tickets").delete().eq("service_date", TEST_DATE);
+    await admin.from("queue_tickets").delete().in("service_date", [TEST_DATE, SYNC_DATE]);
     await admin.from("patients").delete().like("full_name", `${TEST_TAG}%`);
     console.log("\nTest data removed.");
   }

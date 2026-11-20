@@ -13,6 +13,10 @@ export type TicketPublicStatus = {
   status: Enums["ticket_status"];
   channel: Enums["ticket_channel"];
   checked_in: boolean;
+  // Remote patient whose turn came before they arrived (and still not here).
+  missed_turn: boolean;
+  // How many present patients they will join behind once they check in.
+  rejoin_offset: number;
   defer_count: number;
   patient_short_name: string;
   predicted_minutes: number | null;

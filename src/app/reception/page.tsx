@@ -28,7 +28,7 @@ export default async function ReceptionPage() {
     supabase
       .from("queue_tickets")
       .select(
-        "id, doctor_id, ticket_number, position, channel, status, predicted_minutes, prediction_source, defer_count, checked_in_at, estimated_call_at, patients (full_name, phone)",
+        "id, doctor_id, ticket_number, position, channel, status, predicted_minutes, prediction_source, defer_count, checked_in_at, estimated_call_at, missed_turn_at, patients (full_name, phone)",
       )
       .eq("service_date", today)
       .order("position"),
@@ -83,7 +83,7 @@ export default async function ReceptionPage() {
                       <td className="px-3 py-2">
                         {TICKET_CHANNEL_LABEL[t.channel]}
                         {t.channel === "remote" && !t.checked_in_at ? (
-                          <span className="ml-1 text-xs text-amber-700 dark:text-amber-400">(belum tiba)</span>
+                          <span className="ml-1 text-xs text-amber-700 dark:text-amber-400">{t.missed_turn_at ? "(giliran terlewat, belum tiba)" : "(belum tiba)"}</span>
                         ) : null}
                       </td>
                       <td className="px-3 py-2">
@@ -99,7 +99,7 @@ export default async function ReceptionPage() {
                         </span>
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">
-                        {t.status === "waiting" ? (
+                        {t.status === "waiting" && t.estimated_call_at ? (
                           <>
                             {formatClinicTime(t.estimated_call_at)}{" "}
                             <span className="text-zinc-500">(±{minutesUntil(t.estimated_call_at)} mnt)</span>
