@@ -85,8 +85,3 @@ src/proxy.ts        runs before each request; refreshes the auth session
 supabase/           CLI config, migrations and seed
 docs/CONTRACT.md    schema fields and estimateConsultation contract (Denin ↔ Farhan)
 ```
-
-## AI disclosure
-
-_To be written by Farhan: what the AI estimator does, which model it uses, and
-what data it sees._
