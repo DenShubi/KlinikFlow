@@ -13,7 +13,8 @@
     "db:status": "supabase status",
     "db:reset": "supabase db reset",
     "db:new": "supabase migration new",
-    "db:push": "supabase db push"
+    "db:push": "supabase db push --remote",
+    "db:types": "supabase gen types typescript --remote --schema public > src/lib/supabase/database.types.ts"
   },
   "dependencies": {
     "@google/genai": "^3.6.1",

@@ -23,7 +23,7 @@ type EstimateInput = {
 };
 
 type EstimateOutput = {
-  minutes: number;           // predicted consultation length, integer >= 1
+  minutes: number;           // predicted consultation length, integer 5..25
   source: "ai" | "fallback"; // "fallback" shows the fallback badge on screen
   confidence?: number;       // 0..1, optional
   summary?: string;          // short note for the doctor summary card
@@ -35,22 +35,50 @@ export async function estimateConsultation(input: EstimateInput): Promise<Estima
 
 Rules:
 
-- Never throws. On any error or timeout (proposed: 4 s) it returns
+- Never throws. On any error or timeout (4 s) it returns
   `{ minutes: QUEUE_FALLBACK_CONSULT_MINUTES, source: "fallback" }`.
-- File location (proposed): `src/lib/ai/estimate.ts`. Farhan owns that folder.
+- Only `complaint`, `patientAgeYears` and `isFollowUp` are sent to Gemini;
+  `ticketId`, `doctorId` and any patient identity stay on the server.
+- File location: `src/lib/ai/estimate.ts`. Farhan owns that folder.
 
-## 2. Duration fields in the schema
+## 2. Schema fields
 
-Proposed columns on the consultation/ticket row (the full schema lands in the
-migrations task, 22 Nov):
+Both sides use table `public.queue_tickets` (one row per visit), created in
+[`supabase/migrations/20261120080616_init_schema.sql`](../supabase/migrations/20261120080616_init_schema.sql).
 
-| Column | Type | Written by | Read by |
-| --- | --- | --- | --- |
-| `predicted_minutes` | `integer` | queue engine, from `estimateConsultation` | screens, calibration |
-| `prediction_source` | `text` (`ai` / `fallback`) | queue engine | screens (fallback badge) |
-| `started_at` | `timestamptz` | queue engine on "call next" | calibration |
-| `ended_at` | `timestamptz` | queue engine when the consultation ends | calibration |
-| `actual_minutes` | `integer`, generated from `ended_at - started_at` | database | calibration |
+**Input to `estimateConsultation`**
+
+| Column | Type | Maps to |
+| --- | --- | --- |
+| `id` | `uuid` | `ticketId` |
+| `complaint` | `text` | `complaint` |
+| `is_follow_up` | `boolean` | `isFollowUp` |
+| `patients.birth_date` (via `patient_id`) | `date` | `patientAgeYears`, computed by the queue engine |
+| `doctor_id` | `uuid` | `doctorId` |
+
+**Output of `estimateConsultation`**, saved by the queue engine when the ticket is created
+
+| Column | Type | From |
+| --- | --- | --- |
+| `predicted_minutes` | `integer` (1..240) | `minutes` |
+| `prediction_source` | enum `ai` / `fallback` | `source` |
+| `prediction_confidence` | `numeric(3,2)` (0..1) | `confidence` |
+| `prediction_model` | `text` | `model` |
+| `ai_summary` | `text` | `summary` |
+
+**Actual duration** (read by calibration)
+
+| Column | Type | Written by |
+| --- | --- | --- |
+| `started_at` | `timestamptz` | queue engine when the consultation starts |
+| `ended_at` | `timestamptz` | queue engine when the consultation ends |
+| `actual_minutes` | `numeric(6,2)`, generated from `ended_at - started_at` | database |
+
+Calibration rows: `actual_minutes is not null` (index
+`queue_tickets_calibration_idx`). The seed has about 600 finished visits over
+the last two weeks. Seed rows with `prediction_source = 'ai'` have
+`prediction_model = 'synthetic-seed'`, meaning the numbers are simulated, not
+real Gemini output.
 
 ## 3. Environment variables
 
@@ -61,4 +89,4 @@ The names Farhan needs are in [`.env.example`](../.env.example), under
 
 - [ ] Is `minutes` enough, or does the queue also need a range (min/max)?
 - [ ] Which intake fields does the AI need beyond `complaint`?
-- [ ] Timeout value for the AI call.
+- [x] Timeout value for the AI call: 4 s (in `estimate-core.ts`).
