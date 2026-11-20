@@ -49,7 +49,7 @@ export default async function IntakePage() {
   return (
     <div className="flex flex-1 flex-col">
       <header className="mx-auto flex w-full max-w-[480px] items-center justify-between px-4 pt-4">
-        <Link href="/" className="btn btn-quiet -ml-3 px-3" aria-label="Kembali ke beranda">
+        <Link href="/" className="btn btn-quiet h-11 w-11 px-0" aria-label="Kembali ke beranda">
           <ArrowLeftIcon />
         </Link>
         <Brand />
