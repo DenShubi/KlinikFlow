@@ -11,9 +11,8 @@ one function, `estimateConsultation`, and the duration fields in the schema.
 
 Server-side only (the Gemini key never reaches the browser). The queue engine
 calls it when a ticket joins the queue, through `estimateForQueue` in
-`src/lib/queue/estimator.ts`. Until integration (26 Nov) that is a stub
-returning the fallback; integration replaces its body with
-`return estimateConsultation(input);`.
+`src/lib/queue/estimator.ts`, which delegates to `estimateConsultation`
+(integrated 20 Nov). Without `GEMINI_API_KEY` it returns the fallback.
 
 ```ts
 type EstimateInput = {
