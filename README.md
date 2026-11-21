@@ -305,9 +305,10 @@ the doctor), A-004, A-002.
 `estimated_call_at` is recalculated: the remaining time of the current
 consultation plus the predicted minutes of everyone ahead of them. Predictions
 come from the consultation estimator when the ticket is created
-([`src/lib/queue/estimator.ts`](src/lib/queue/estimator.ts)); it currently
-returns the default length (`QUEUE_FALLBACK_CONSULT_MINUTES`) until the AI
-estimator is connected. Because time also passes between changes (a
+([`src/lib/queue/estimator.ts`](src/lib/queue/estimator.ts)), which calls
+the Gemini estimator in [`src/lib/ai`](src/lib/ai). Without `GEMINI_API_KEY`,
+or when Gemini is slow or fails, it uses the default length
+(`QUEUE_FALLBACK_CONSULT_MINUTES`). Because time also passes between changes (a
 consultation runs over, a doctor is idle), a `pg_cron` job recalculates every
 active queue once a minute
 ([`refresh_estimates_job` migration](supabase/migrations/20261120113912_refresh_estimates_job.sql)).
