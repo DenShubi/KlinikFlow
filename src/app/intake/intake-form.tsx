@@ -1,8 +1,14 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useMemo, useState } from "react";
 
+import {
+  buildEnrichedComplaintFromAnswers,
+  ComplaintClarifier,
+  type ClarifierAnswers,
+} from "@/components/ai";
 import { CheckIcon } from "@/components/icons";
+import type { ClarifyQuestion } from "@/lib/ai/clarify-core";
 import { registerRemote, type IntakeState } from "@/lib/intake/actions";
 
 export type DoctorOption = {
@@ -20,6 +26,33 @@ const HELP = "text-[13px] font-normal text-muted";
 export function IntakeForm({ doctors }: { doctors: DoctorOption[] }) {
   const [state, formAction, pending] = useActionState<IntakeState, FormData>(registerRemote, {});
   const v = state.values ?? {};
+  const [complaintText, setComplaintText] = useState(v.complaint ?? "");
+  const [clarifyQuestions, setClarifyQuestions] = useState<ClarifyQuestion[]>([]);
+  const [clarifyAnswers, setClarifyAnswers] = useState<ClarifierAnswers>({});
+
+  const enrichedComplaint = useMemo(
+    () => buildEnrichedComplaintFromAnswers(complaintText, clarifyQuestions, clarifyAnswers, 500),
+    [complaintText, clarifyQuestions, clarifyAnswers],
+  );
+
+  function handleQuestionsLoaded(nextQuestions: ClarifyQuestion[]) {
+    setClarifyQuestions(nextQuestions);
+    setClarifyAnswers({});
+  }
+
+  function handleToggleAnswer(question: ClarifyQuestion, option: string) {
+    setClarifyAnswers((prev) => {
+      const current = prev[question.id] ?? [];
+      const exists = current.includes(option);
+      let next: string[];
+      if (question.allowMultiple) {
+        next = exists ? current.filter((item) => item !== option) : [...current, option];
+      } else {
+        next = exists ? [] : [option];
+      }
+      return { ...prev, [question.id]: next };
+    });
+  }
 
   return (
     <form action={formAction} className="flex flex-col gap-7">
@@ -83,18 +116,29 @@ export function IntakeForm({ doctors }: { doctors: DoctorOption[] }) {
           <span className={HELP}>Kami kabari saat giliran Anda dekat.</span>
         </label>
 
-        <label className={LABEL}>
-          Keluhan
-          <textarea
-            name="complaint"
-            required
-            rows={3}
-            maxLength={500}
-            placeholder="Contoh: demam dan batuk sejak 2 hari"
-            defaultValue={v.complaint}
-            className="field resize-y"
+        <div className="flex flex-col gap-3">
+          <label className={LABEL}>
+            Keluhan
+            <textarea
+              required
+              rows={3}
+              maxLength={380}
+              placeholder="Contoh: kepala cenat cenut atau demam sejak kemarin"
+              value={complaintText}
+              onChange={(e) => setComplaintText(e.target.value)}
+              className="field resize-y"
+            />
+          </label>
+          <input type="hidden" name="complaint" value={enrichedComplaint} />
+
+          <ComplaintClarifier
+            complaint={complaintText}
+            questions={clarifyQuestions}
+            answers={clarifyAnswers}
+            onQuestionsLoaded={handleQuestionsLoaded}
+            onToggleAnswer={handleToggleAnswer}
           />
-        </label>
+        </div>
 
         <label className={LABEL}>
           <span>
