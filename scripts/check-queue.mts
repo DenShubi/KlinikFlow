@@ -132,6 +132,8 @@ async function main() {
     check("receptionist creates ticket #2 (remote, not arrived)", t2.data?.ticket_number === 2 && !t2.data.checked_in_at, t2.error?.message);
     const t3 = await create(receptionist, 2, "walk_in", 12);
     check("receptionist creates ticket #3 at position 3", t3.data?.position === 3, t3.error?.message);
+    check("a walk-in is not marked arrived until the receptionist presses Tiba", !t1.data?.checked_in_at && !t3.data?.checked_in_at);
+    for (const t of [t1, t3]) await receptionist.rpc("queue_check_in", { p_ticket_id: t.data!.id });
     const denied = await create(doctorA, 2, "walk_in", 5);
     check("doctor cannot create a ticket", !!denied.error, denied.error?.code);
 
@@ -201,8 +203,9 @@ async function main() {
       });
     const h1 = await mk(0, "walk_in");
     const h2 = await mk(1, "remote");
-    await mk(2, "walk_in");
-    await mk(0, "walk_in");
+    const h3 = await mk(2, "walk_in");
+    const h4 = await mk(0, "walk_in");
+    for (const t of [h1, h3, h4]) await receptionist.rpc("queue_check_in", { p_ticket_id: t.data!.id });
     const order = async () => {
       const { data } = await admin
         .from("queue_tickets")

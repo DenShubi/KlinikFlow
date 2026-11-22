@@ -16,34 +16,43 @@ export type Database = {
     Tables: {
       doctors: {
         Row: {
+          closes_at: string
           created_at: string
           full_name: string
           id: string
           is_active: boolean
+          opens_at: string
           profile_id: string | null
           room: string | null
           ticket_prefix: string
           updated_at: string
+          work_days: number[]
         }
         Insert: {
+          closes_at?: string
           created_at?: string
           full_name: string
           id?: string
           is_active?: boolean
+          opens_at?: string
           profile_id?: string | null
           room?: string | null
           ticket_prefix: string
           updated_at?: string
+          work_days?: number[]
         }
         Update: {
+          closes_at?: string
           created_at?: string
           full_name?: string
           id?: string
           is_active?: boolean
+          opens_at?: string
           profile_id?: string | null
           room?: string | null
           ticket_prefix?: string
           updated_at?: string
+          work_days?: number[]
         }
         Relationships: [
           {

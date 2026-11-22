@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { connection } from "next/server";
 
 import { Brand } from "@/components/brand";
 import { ArrowLeftIcon } from "@/components/icons";
-import { clinicToday, minutesUntil } from "@/lib/clinic-time";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { getQueueBoard } from "@/lib/queue/board";
 
 import { IntakeForm, type DoctorOption } from "./intake-form";
 
@@ -15,36 +13,18 @@ export const metadata: Metadata = {
 };
 
 export default async function IntakePage() {
-  await connection(); // queue lengths are read per request
-  const admin = createAdminClient();
-  const today = clinicToday();
-
-  const [{ data: doctors }, { data: active }] = await Promise.all([
-    admin.from("doctors").select("id, full_name, room, ticket_prefix").eq("is_active", true).order("ticket_prefix"),
-    admin
-      .from("queue_tickets")
-      .select("doctor_id, status, estimated_call_at, predicted_minutes")
-      .eq("service_date", today)
-      .in("status", ["waiting", "called", "in_consultation"]),
-  ]);
-
-  // Rough wait for someone joining now: when the last waiting patient is
-  // expected to be called, plus their consultation.
-  const options: DoctorOption[] = (doctors ?? []).map((d) => {
-    const queue = active?.filter((t) => t.doctor_id === d.id) ?? [];
-    const waiting = queue.filter((t) => t.status === "waiting");
-    const lastEnd = waiting
-      .map((t) => (t.estimated_call_at ? Date.parse(t.estimated_call_at) + (t.predicted_minutes ?? 10) * 60000 : 0))
-      .reduce((a, b) => Math.max(a, b), 0);
-    return {
-      id: d.id,
-      name: d.full_name,
-      room: d.room,
-      prefix: d.ticket_prefix,
-      waiting: waiting.length,
-      waitMinutes: lastEnd ? (minutesUntil(new Date(lastEnd).toISOString()) ?? 0) : 0,
-    };
-  });
+  const board = await getQueueBoard();
+  const options: DoctorOption[] = board.map((d) => ({
+    id: d.id,
+    name: d.name,
+    room: d.room,
+    prefix: d.prefix,
+    waiting: d.waiting,
+    waitMinutes: d.waitMinutes,
+    open: d.availability.open,
+    hoursNote: d.availability.note,
+    hours: `${d.availability.days} · ${d.availability.hours}`,
+  }));
 
   return (
     <div className="flex flex-1 flex-col">
@@ -66,6 +46,24 @@ export default async function IntakePage() {
           <div className="card px-5 py-8 text-center">
             <p className="font-semibold">Belum ada dokter praktik</p>
             <p className="mt-1 text-sm text-muted">Coba lagi nanti.</p>
+          </div>
+        ) : options.every((d) => !d.open) ? (
+          <div className="card flex flex-col gap-4 px-5 py-6">
+            <div>
+              <p className="text-lg font-bold">Klinik sedang tutup</p>
+              <p className="mt-1 text-sm text-muted">Pendaftaran dibuka lagi saat jam praktik.</p>
+            </div>
+            <ul className="flex flex-col gap-3 border-t border-line-soft pt-4">
+              {options.map((d) => (
+                <li key={d.id} className="flex items-start justify-between gap-3 text-sm">
+                  <span>
+                    <span className="block font-semibold">{d.name}</span>
+                    <span className="text-muted">{d.hours}</span>
+                  </span>
+                  <span className="shrink-0 text-right text-muted">{d.hoursNote}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         ) : (
           <IntakeForm doctors={options} />

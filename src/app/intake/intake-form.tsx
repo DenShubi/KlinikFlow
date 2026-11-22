@@ -18,6 +18,9 @@ export type DoctorOption = {
   prefix: string;
   waiting: number;
   waitMinutes: number;
+  open: boolean;
+  hours: string; // "Senin–Jumat · 08.00–16.00"
+  hoursNote: string; // "Tutup · buka Senin 08.00"
 };
 
 const LABEL = "flex flex-col gap-2 text-sm font-semibold text-ink";
@@ -26,6 +29,7 @@ const HELP = "text-[13px] font-normal text-muted";
 export function IntakeForm({ doctors }: { doctors: DoctorOption[] }) {
   const [state, formAction, pending] = useActionState<IntakeState, FormData>(registerRemote, {});
   const v = state.values ?? {};
+  const firstOpen = doctors.find((d) => d.open)?.id;
   const [complaintText, setComplaintText] = useState(v.complaint ?? "");
   const [clarifyQuestions, setClarifyQuestions] = useState<ClarifyQuestion[]>([]);
   const [clarifyAnswers, setClarifyAnswers] = useState<ClarifierAnswers>({});
@@ -58,17 +62,19 @@ export function IntakeForm({ doctors }: { doctors: DoctorOption[] }) {
     <form action={formAction} className="flex flex-col gap-7">
       <fieldset className="flex flex-col gap-2.5">
         <legend className="mb-2.5 text-sm font-semibold">Dokter</legend>
-        {doctors.map((d, i) => (
+        {doctors.map((d) => (
           <label
             key={d.id}
-            className="group relative flex min-h-[64px] cursor-pointer items-center gap-3.5 rounded-[14px] bg-surface px-4 py-3 shadow-[inset_0_0_0_1px_var(--color-line)] transition-[box-shadow,background-color] duration-[var(--dur-1)] hover:shadow-[inset_0_0_0_1px_#c9ccec] has-[:checked]:bg-tint has-[:checked]:shadow-[inset_0_0_0_2px_var(--color-accent)] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent"
+            aria-disabled={!d.open || undefined}
+            className="group relative flex min-h-[64px] cursor-pointer items-center gap-3.5 rounded-[14px] bg-surface px-4 py-3 shadow-[inset_0_0_0_1px_var(--color-line)] transition-[box-shadow,background-color] duration-[var(--dur-1)] hover:shadow-[inset_0_0_0_1px_#c9ccec] has-[:checked]:bg-tint has-[:checked]:shadow-[inset_0_0_0_2px_var(--color-accent)] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60"
           >
             <input
               type="radio"
               name="doctorId"
               value={d.id}
               required
-              defaultChecked={v.doctorId ? v.doctorId === d.id : i === 0}
+              disabled={!d.open}
+              defaultChecked={d.open && (v.doctorId ? v.doctorId === d.id : d.id === firstOpen)}
               className="peer sr-only"
             />
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] bg-tint font-mono text-[15px] font-semibold text-accent-strong group-has-[:checked]:bg-accent group-has-[:checked]:text-white">
@@ -79,7 +85,12 @@ export function IntakeForm({ doctors }: { doctors: DoctorOption[] }) {
               <span className="text-[13px] text-muted">{d.room}</span>
             </span>
             <span className="flex shrink-0 flex-col items-end text-right tabular-nums">
-              {d.waiting === 0 ? (
+              {!d.open ? (
+                <>
+                  <span className="text-[13px] font-semibold text-muted">Tutup</span>
+                  <span className="text-xs text-muted">{d.hoursNote.replace(/^Tutup · /, "")}</span>
+                </>
+              ) : d.waiting === 0 ? (
                 <span className="text-[13px] font-semibold text-ok">Tanpa antre</span>
               ) : (
                 <>

@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 
 import { ageInYears } from "@/lib/age";
+import { doctorAvailability } from "@/lib/clinic-hours";
 import { clinicToday } from "@/lib/clinic-time";
 import { normalizePhone } from "@/lib/phone";
 import { estimateForQueue } from "@/lib/queue/estimator";
@@ -49,11 +50,13 @@ export async function registerRemote(_prev: IntakeState, formData: FormData): Pr
 
   const { data: doctor } = await admin
     .from("doctors")
-    .select("id")
+    .select("id, work_days, opens_at, closes_at")
     .eq("id", values.doctorId)
     .eq("is_active", true)
     .maybeSingle();
   if (!doctor) return fail("Dokter tidak tersedia. Pilih dokter lain.");
+  const availability = doctorAvailability(doctor);
+  if (!availability.open) return fail(`Dokter ini sedang tutup (${availability.note.replace(/^Tutup · /, "")}).`);
 
   // Same name and number already in today's queue for this doctor: show that ticket.
   const { data: patients } = await admin

@@ -33,8 +33,9 @@ A five-minute walkthrough:
    a number like `0800 0000 1234`. You get a ticket page with your number,
    people ahead and an estimated call time. Keep it open.
 2. **As the receptionist** (a second browser or a private window): sign in.
-   Your ticket appears in queue A as *Daftar online (belum tiba)*. Click
-   **Tiba** to mark that you have arrived; the ticket page updates by itself.
+   Your ticket appears in queue A as *Online · Belum tiba*. Click
+   **Tandai tiba** to mark that you have arrived; the ticket page updates by
+   itself. Patients registered at the desk are marked as arrived the same way.
 3. **As doctor A** (a third window): sign in. Use the main button to finish
    the current patient and call the next ones. Every open window, including
    the patient's ticket page, follows within a second or two.
@@ -207,12 +208,12 @@ The app is a standard Next.js project and deploys to
 
 | Path | For | What it does |
 | --- | --- | --- |
-| `/` | Everyone | Start page: take a queue number or sign in as staff |
-| `/intake` | Patients | Register remotely: choose a doctor (with the current queue length), enter name, WhatsApp number and complaint |
+| `/` | Everyone | Start page: one live ticket per doctor (who is being served, how many wait, opening hours; swipe or use the dots), take a queue number, staff sign-in |
+| `/intake` | Patients | Register remotely: choose a doctor who is open now (with the current wait), enter name, WhatsApp number and complaint; short follow-up questions clarify the complaint |
 | `/ticket/<id>` | Patients | The patient's own ticket: number, people ahead, estimated call time, when to arrive; updates live |
 | `/login` | Staff | Sign in |
 | `/doctor` | Doctors | Dashboard: current patient with a timer, one button to call / start / finish, complaint summary, next patients, today's predicted vs actual durations |
-| `/reception` | Receptionists | All queues, add a patient, mark arrivals, cancel tickets |
+| `/reception` | Receptionists | All queues and opening hours, register a patient at the desk (with the same complaint questions and the estimated consultation time), mark arrivals, cancel tickets |
 
 Patients never sign in. After registering they are sent to their ticket page,
 whose link contains the ticket id (a random UUID). That page reads
@@ -223,6 +224,17 @@ contain no personal data
 ([`patient_ticket_access` migration](supabase/migrations/20261120113207_patient_ticket_access.sql)).
 The intake runs on the server with the secret key and validates every field;
 a hidden form field filters out simple bots.
+
+### Working hours
+
+Each doctor has working days and hours in clinic time (WIB), stored on the
+`doctors` row (`work_days`, `opens_at`, `closes_at`). The defaults follow
+formal Indonesian office hours: **Monday to Friday, 08.00–16.00**. Outside
+those hours a doctor shows as *Tutup* with the next opening time, and patients
+cannot register for them online. The receptionist can still add a patient.
+Set `CLINIC_ALWAYS_OPEN=true` to treat every doctor as open, for demos at night
+or on weekends
+([`doctor_hours_walk_in_check_in` migration](supabase/migrations/20261122114112_doctor_hours_walk_in_check_in.sql)).
 
 ## Staff accounts and roles
 
@@ -274,7 +286,7 @@ directly; the functions check each caller's role themselves.
 | Function | Who | What it does |
 | --- | --- | --- |
 | `queue_create_ticket` | Receptionist, server | Adds a ticket at the end of a doctor's queue with the next ticket number |
-| `queue_check_in` | Staff | Marks a remote patient as arrived; a patient who missed their turn rejoins (see below) |
+| `queue_check_in` | Staff | Marks a patient as arrived ("Tiba"); a patient who missed their turn rejoins (see below) |
 | `queue_call_next` | Doctor (own queue), receptionist | Calls the next patient in line who is at the clinic; remote patients ahead who have not arrived miss their turn |
 | `queue_start_consultation` | Doctor, receptionist | The called patient is with the doctor |
 | `queue_finish_consultation` | Doctor, receptionist | Ends the consultation; `actual_minutes` is saved |
@@ -285,12 +297,14 @@ directly; the functions check each caller's role themselves.
 Walk-in and remote patients share one queue, numbered in the order they
 register, at the desk or from home
 ([`hybrid_synchronizer` migration](supabase/migrations/20261120115246_hybrid_synchronizer.sql)).
-Three rules keep the two in step:
+Every patient, walk-in or remote, is marked as arrived by the receptionist
+("Tiba") when they are in the waiting room: a walk-in may register while the
+queue is long and go home in the meantime. Three rules keep everyone in step:
 
-1. **On time.** A remote patient who checks in at the desk before their turn
-   keeps their place.
-2. **Missed turn.** When the doctor calls the next patient and a remote patient
-   ahead has not arrived, that patient misses their turn. They stop counting in
+1. **On time.** A patient who is marked as arrived before their turn keeps
+   their place.
+2. **Missed turn.** When the doctor calls the next patient and a patient ahead
+   has not arrived, that patient misses their turn. They stop counting in
    everyone else's wait estimate, and their ticket page asks them to come in.
 3. **Rejoin.** When they arrive, they join the queue two places behind the
    patients who are at the clinic at that moment. Walk-ins who waited in the
@@ -370,6 +384,7 @@ tokens.
 | `SUPABASE_SECRET_KEY` | Trusted server tasks such as seeding and webhooks; bypasses row-level security | **yes** |
 | `DEMO_STAFF_PASSWORD` | Password given to the demo staff accounts by `npm run staff:seed` | **yes** |
 | `NEXT_PUBLIC_APP_URL` | Base URL used in links and auth redirects | no |
+| `CLINIC_ALWAYS_OPEN` | `true` treats every doctor as open, ignoring working hours (demos) | no |
 | `GEMINI_API_KEY` | Consultation estimates | **yes** |
 | `GEMINI_MODEL` | Gemini model used for estimates | no |
 | `GEMINI_TIMEOUT_MS` | How long to wait for Gemini before using the default length | no |

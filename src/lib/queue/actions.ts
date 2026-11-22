@@ -8,12 +8,16 @@ import { clinicToday } from "@/lib/clinic-time";
 import { normalizePhone } from "@/lib/phone";
 import { estimateForQueue } from "@/lib/queue/estimator";
 import { queueErrorMessage } from "@/lib/queue/errors";
+import { ticketCode } from "@/lib/queue/labels";
 import { createClient } from "@/lib/supabase/server";
-import type { Database } from "@/lib/supabase/database.types";
 
-export type ActionResult = { ok: boolean; error?: string; message?: string };
-
-type Channel = Database["public"]["Enums"]["ticket_channel"];
+export type ActionResult = {
+  ok: boolean;
+  error?: string;
+  message?: string;
+  // Set by createTicket: what the receptionist tells the patient.
+  ticket?: { code: string; minutes: number; summary?: string };
+};
 
 // Receptionist adds a patient to a doctor's queue: creates the patient,
 // estimates the consultation length, then appends the ticket.
@@ -25,7 +29,6 @@ export async function createTicket(_prev: ActionResult, formData: FormData): Pro
   const complaint = String(formData.get("complaint") ?? "").trim();
   const birthDate = String(formData.get("birthDate") ?? "").trim();
   const isFollowUp = formData.get("isFollowUp") === "on";
-  const channel: Channel = formData.get("channel") === "remote" ? "remote" : "walk_in";
   const phone = normalizePhone(String(formData.get("phone") ?? ""));
 
   if (!doctorId) return { ok: false, error: "Pilih dokter." };
@@ -52,7 +55,7 @@ export async function createTicket(_prev: ActionResult, formData: FormData): Pro
   const { data: ticket, error } = await supabase.rpc("queue_create_ticket", {
     p_doctor_id: doctorId,
     p_patient_id: patient.id,
-    p_channel: channel,
+    p_channel: "walk_in", // registered at the desk; the patient still confirms arrival ("Tiba")
     p_complaint: complaint,
     p_is_follow_up: isFollowUp,
     p_predicted_minutes: estimate.minutes,
@@ -64,8 +67,20 @@ export async function createTicket(_prev: ActionResult, formData: FormData): Pro
   // On failure the new patient row stays; it is harmless and can be reused later.
   if (error) return { ok: false, error: queueErrorMessage(error) };
 
+  const { data: doctor } = await supabase.from("doctors").select("ticket_prefix").eq("id", doctorId).single();
+  const code = ticketCode(doctor?.ticket_prefix ?? "?", ticket.ticket_number);
+
   refresh();
-  return { ok: true, message: `Tiket nomor ${ticket.ticket_number} dibuat untuk ${fullName}.` };
+  return {
+    ok: true,
+    message: `${code} dibuat untuk ${fullName}.`,
+    ticket: {
+      code,
+      minutes: ticket.predicted_minutes ?? estimate.minutes,
+      // Only a real summary; the fallback would just repeat the complaint.
+      summary: estimate.source === "ai" ? estimate.summary : undefined,
+    },
+  };
 }
 
 async function runTicketOperation(

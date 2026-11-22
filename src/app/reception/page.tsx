@@ -5,6 +5,7 @@ import { ActionButton } from "@/components/queue/action-button";
 import { LiveRefresh } from "@/components/queue/live-refresh";
 import { PageTitle, StaffHeader } from "@/components/staff-header";
 import { requireStaff } from "@/lib/auth/dal";
+import { doctorAvailability } from "@/lib/clinic-hours";
 import { clinicToday, formatClinicDate, formatClinicTime, minutesUntil } from "@/lib/clinic-time";
 import { cancelTicket, checkIn } from "@/lib/queue/actions";
 import { TICKET_STATUS_LABEL, ticketCode } from "@/lib/queue/labels";
@@ -61,7 +62,8 @@ function QueueTable({ prefix, rows, muted = false }: { prefix: string; rows: Row
         <tbody>
           {rows.map((t) => {
             const open = t.status === "waiting" || t.status === "called";
-            const notArrived = t.channel === "remote" && !t.checked_in_at && open;
+            // Every patient, walk-in or online, is marked as arrived by the receptionist.
+            const notArrived = !t.checked_in_at && open;
             return (
               <tr key={t.id} className="border-t border-line-soft">
                 <td className="whitespace-nowrap px-5 py-3 font-mono font-semibold">{ticketCode(prefix, t.ticket_number)}</td>
@@ -124,7 +126,7 @@ export default async function ReceptionPage() {
   const today = clinicToday();
 
   const [{ data: doctors }, { data: tickets, error }] = await Promise.all([
-    supabase.from("doctors").select("id, full_name, room, ticket_prefix").order("ticket_prefix"),
+    supabase.from("doctors").select("id, full_name, room, ticket_prefix, work_days, opens_at, closes_at").order("ticket_prefix"),
     supabase
       .from("queue_tickets")
       .select(
@@ -133,6 +135,7 @@ export default async function ReceptionPage() {
       .eq("service_date", today)
       .order("position"),
   ]);
+  const hours = new Map((doctors ?? []).map((d) => [d.id, doctorAvailability(d)]));
 
   return (
     <>
@@ -154,6 +157,8 @@ export default async function ReceptionPage() {
                 prefix: d.ticket_prefix,
                 name: d.full_name,
                 room: d.room,
+                open: hours.get(d.id)?.open ?? true,
+                note: hours.get(d.id)?.note ?? "",
               }))}
             />
           </div>
@@ -173,7 +178,15 @@ export default async function ReceptionPage() {
                       </span>
                       <div>
                         <h2 className="font-bold">{doctor.full_name}</h2>
-                        <p className="text-[13px] text-muted">{doctor.room}</p>
+                        <p className="text-[13px] text-muted">
+                          {doctor.room}
+                          {hours.get(doctor.id) ? (
+                            <span className={hours.get(doctor.id)!.open ? "" : "font-semibold text-warn"}>
+                              {" · "}
+                              {hours.get(doctor.id)!.note}
+                            </span>
+                          ) : null}
+                        </p>
                       </div>
                     </div>
                     <p className="text-sm text-muted">

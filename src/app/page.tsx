@@ -1,8 +1,11 @@
 import Link from "next/link";
+import { Suspense } from "react";
 
 import { Brand } from "@/components/brand";
 import { ArrowRightIcon, BellIcon, ClockIcon } from "@/components/icons";
+import { DoctorCarousel } from "@/components/queue/doctor-carousel";
 import { PrintLabel, Ticket } from "@/components/ticket";
+import { getQueueBoard } from "@/lib/queue/board";
 
 const STEPS = [
   { n: "1", title: "Ambil nomor", text: "Isi nama dan keluhan, 1 menit." },
@@ -50,12 +53,34 @@ export default function Home() {
           </ol>
         </section>
 
-        <div className="mx-auto w-full max-w-[380px] lg:rotate-[2deg]" aria-hidden="true">
-          <SampleTicket />
+        <div className="mx-auto w-full max-w-[404px]">
+          <Suspense
+            fallback={
+              <div className="px-3 py-4" aria-hidden="true">
+                <SampleTicket />
+              </div>
+            }
+          >
+            <LiveQueues />
+          </Suspense>
         </div>
       </main>
     </div>
   );
+}
+
+// Live ticket per doctor; the sample ticket stays as the loading shape and
+// for a clinic with no doctors yet.
+async function LiveQueues() {
+  const doctors = await getQueueBoard();
+  if (doctors.length === 0) {
+    return (
+      <div className="px-3 py-4" aria-hidden="true">
+        <SampleTicket />
+      </div>
+    );
+  }
+  return <DoctorCarousel doctors={doctors} />;
 }
 
 // Product visual: the real ticket shape with sample data.
