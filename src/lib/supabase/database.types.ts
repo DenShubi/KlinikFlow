@@ -24,6 +24,7 @@ export type Database = {
           opens_at: string
           profile_id: string | null
           room: string | null
+          specialty: string
           ticket_prefix: string
           updated_at: string
           work_days: number[]
@@ -37,6 +38,7 @@ export type Database = {
           opens_at?: string
           profile_id?: string | null
           room?: string | null
+          specialty?: string
           ticket_prefix: string
           updated_at?: string
           work_days?: number[]
@@ -50,6 +52,7 @@ export type Database = {
           opens_at?: string
           profile_id?: string | null
           room?: string | null
+          specialty?: string
           ticket_prefix?: string
           updated_at?: string
           work_days?: number[]

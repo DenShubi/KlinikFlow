@@ -8,7 +8,7 @@ import { AlertIcon, BellIcon, CheckIcon, ClockIcon, DoorIcon, UsersIcon } from "
 import { CopyLinkButton } from "@/components/queue/copy-link-button";
 import { TicketLive } from "@/components/queue/ticket-live";
 import { PrintLabel, Ticket } from "@/components/ticket";
-import { formatClinicDate, formatClinicTime, minutesUntil } from "@/lib/clinic-time";
+import { clinicToday, formatClinicDate, formatClinicTime, minutesUntil } from "@/lib/clinic-time";
 import { isUuid, queueTopic, type TicketPublicStatus } from "@/lib/queue/public-status";
 import { createClient } from "@/lib/supabase/server";
 
@@ -155,7 +155,8 @@ function WaitingStub({ t }: { t: TicketPublicStatus }) {
     );
   }
 
-  const minutes = minutesUntil(t.estimated_call_at);
+  const isFutureDate = t.service_date > clinicToday();
+  const minutes = isFutureDate ? null : minutesUntil(t.estimated_call_at);
   const arriveBy = t.estimated_call_at
     ? new Date(Date.parse(t.estimated_call_at) - ARRIVE_EARLY_MINUTES * 60000).toISOString()
     : null;
@@ -171,7 +172,13 @@ function WaitingStub({ t }: { t: TicketPublicStatus }) {
             {formatClinicTime(t.estimated_call_at)}
           </p>
           <p className="mt-1.5 text-[13px] text-muted">
-            {minutes === null ? "" : minutes <= 1 ? "sebentar lagi" : `±${minutes} menit lagi`}
+            {isFutureDate
+              ? formatClinicDate(t.service_date)
+              : minutes === null
+                ? ""
+                : minutes <= 1
+                  ? "sebentar lagi"
+                  : `±${minutes} menit lagi`}
           </p>
         </div>
         <div>
@@ -206,7 +213,16 @@ function WaitingStub({ t }: { t: TicketPublicStatus }) {
         <p className="flex items-center gap-2 rounded-[10px] bg-tint px-4 py-3 text-sm">
           <BellIcon size={18} className="shrink-0 text-accent" />
           <span>
-            Datang sebelum <strong className="tabular-nums">{formatClinicTime(arriveBy)}</strong>, tunjukkan tiket ini.
+            {isFutureDate ? (
+              <>
+                Datang pada <strong className="tabular-nums">{formatClinicDate(t.service_date)}</strong> sebelum{" "}
+                <strong className="tabular-nums">{formatClinicTime(arriveBy)}</strong>, tunjukkan tiket ini.
+              </>
+            ) : (
+              <>
+                Datang sebelum <strong className="tabular-nums">{formatClinicTime(arriveBy)}</strong>, tunjukkan tiket ini.
+              </>
+            )}
           </span>
         </p>
       )}

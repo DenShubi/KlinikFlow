@@ -3,7 +3,11 @@
 import { redirect } from "next/navigation";
 
 import { ageInYears } from "@/lib/age";
-import { doctorAvailability } from "@/lib/clinic-hours";
+import {
+  clinicAlwaysOpen,
+  clinicCloseTimestampMs,
+  isDoctorWorkingOnDate,
+} from "@/lib/clinic-hours";
 import { clinicToday } from "@/lib/clinic-time";
 import { normalizePhone } from "@/lib/phone";
 import { estimateForQueue } from "@/lib/queue/estimator";
@@ -20,8 +24,10 @@ const MAX_COMPLAINT = 500;
 // Remote registration by a patient (not signed in). Runs with the secret key,
 // so every input is validated here and only narrow queries are made.
 export async function registerRemote(_prev: IntakeState, formData: FormData): Promise<IntakeState> {
+  const today = clinicToday();
   const values = {
     doctorId: String(formData.get("doctorId") ?? ""),
+    serviceDate: String(formData.get("serviceDate") ?? today).trim() || today,
     fullName: String(formData.get("fullName") ?? "").trim().replace(/\s+/g, " "),
     phone: String(formData.get("phone") ?? "").trim(),
     birthDate: String(formData.get("birthDate") ?? "").trim(),
@@ -39,7 +45,6 @@ export async function registerRemote(_prev: IntakeState, formData: FormData): Pr
   const phone = normalizePhone(values.phone);
   if (!phone) return fail("Nomor WhatsApp wajib diisi agar kami bisa mengabari Anda.");
   if (phone === "invalid") return fail("Nomor WhatsApp tidak valid. Contoh: 0812 3456 7890.");
-  const today = clinicToday();
   if (values.birthDate && (values.birthDate > today || ageInYears(values.birthDate, today) === undefined)) {
     return fail("Tanggal lahir tidak valid.");
   }
@@ -55,10 +60,10 @@ export async function registerRemote(_prev: IntakeState, formData: FormData): Pr
     .eq("is_active", true)
     .maybeSingle();
   if (!doctor) return fail("Dokter tidak tersedia. Pilih dokter lain.");
-  const availability = doctorAvailability(doctor);
-  if (!availability.open) return fail(`Dokter ini sedang tutup (${availability.note.replace(/^Tutup · /, "")}).`);
+  const dateCheck = isDoctorWorkingOnDate(doctor, values.serviceDate);
+  if (!dateCheck.ok) return fail(dateCheck.reason ?? "Tanggal kunjungan tidak tersedia.");
 
-  // Same name and number already in today's queue for this doctor: show that ticket.
+  // Same name and number already in this date's queue for this doctor: show that ticket.
   const { data: patients } = await admin
     .from("patients")
     .select("id")
@@ -72,11 +77,33 @@ export async function registerRemote(_prev: IntakeState, formData: FormData): Pr
       .select("id")
       .in("patient_id", patientIds)
       .eq("doctor_id", doctor.id)
-      .eq("service_date", today)
+      .eq("service_date", values.serviceDate)
       .in("status", ["waiting", "called", "in_consultation"])
       .limit(1)
       .maybeSingle();
     if (existing) redirect(`/ticket/${existing.id}`);
+  }
+
+  // Capacity guard: prevent overbooking past doctor's closes_at on the chosen date.
+  const enforceCapacity = !(clinicAlwaysOpen() && values.serviceDate === today);
+  if (enforceCapacity) {
+    const { data: activeOnDate } = await admin
+      .from("queue_tickets")
+      .select("estimated_call_at, predicted_minutes")
+      .eq("doctor_id", doctor.id)
+      .eq("service_date", values.serviceDate)
+      .in("status", ["waiting", "called", "in_consultation"]);
+
+    const lastEndMs = (activeOnDate ?? []).reduce((max, t) => {
+      if (!t.estimated_call_at) return max;
+      const endMs = Date.parse(t.estimated_call_at) + (t.predicted_minutes ?? 10) * 60000;
+      return Math.max(max, endMs);
+    }, 0);
+
+    const closeMs = clinicCloseTimestampMs(values.serviceDate, doctor.closes_at);
+    if (lastEndMs > 0 && lastEndMs >= closeMs) {
+      return fail("Kuota antrean pada tanggal tersebut sudah penuh. Silakan pilih tanggal lain.");
+    }
   }
 
   let patientId = patientIds[0];
@@ -93,7 +120,7 @@ export async function registerRemote(_prev: IntakeState, formData: FormData): Pr
   const estimate = await estimateForQueue({
     ticketId: "",
     complaint: values.complaint,
-    patientAgeYears: ageInYears(values.birthDate, today),
+    patientAgeYears: ageInYears(values.birthDate, values.serviceDate),
     isFollowUp: values.isFollowUp === "on",
     doctorId: doctor.id,
   });
@@ -109,6 +136,7 @@ export async function registerRemote(_prev: IntakeState, formData: FormData): Pr
     p_prediction_confidence: estimate.confidence,
     p_prediction_model: estimate.model,
     p_ai_summary: estimate.summary,
+    p_service_date: values.serviceDate,
   });
   if (error || !ticket) return fail("Pendaftaran gagal. Coba lagi.");
 

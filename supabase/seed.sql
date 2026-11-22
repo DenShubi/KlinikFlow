@@ -18,10 +18,10 @@ select setseed(0.2026);
 
 -- ─── Doctors ────────────────────────────────────────────────────────────────
 
-insert into public.doctors (id, full_name, room, ticket_prefix) values
-  ('00000000-0000-4000-8000-00000000d001', 'dr. Larasati Wibowo', 'Ruang 1', 'A'),
-  ('00000000-0000-4000-8000-00000000d002', 'dr. Hendra Kusuma', 'Ruang 2', 'B'),
-  ('00000000-0000-4000-8000-00000000d003', 'dr. Maya Sitompul', 'Ruang 3', 'C');
+insert into public.doctors (id, full_name, specialty, room, ticket_prefix) values
+  ('00000000-0000-4000-8000-00000000d001', 'dr. Larasati Wibowo', 'Dokter Umum', 'Ruang 1', 'A'),
+  ('00000000-0000-4000-8000-00000000d002', 'dr. Hendra Kusuma', 'Dokter Umum · Anak & Keluarga', 'Ruang 2', 'B'),
+  ('00000000-0000-4000-8000-00000000d003', 'dr. Maya Sitompul', 'Dokter Umum · Kesehatan Ibu & Anak', 'Ruang 3', 'C');
 
 -- ─── Patients ───────────────────────────────────────────────────────────────
 

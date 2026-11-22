@@ -15,7 +15,11 @@ export type BoardDoctor = {
   id: string;
   prefix: string;
   name: string;
+  specialty: string;
   room: string | null;
+  workDays: number[];
+  opensAt: string;
+  closesAt: string;
   nowServing: string | null; // ticket code with the doctor (or called), e.g. "A-012"
   waiting: number; // waiting patients who still count (not away after a missed turn)
   waitMinutes: number; // estimated wait for someone joining now
@@ -33,7 +37,7 @@ export async function getQueueBoard(): Promise<BoardDoctor[]> {
   const [{ data: doctors }, { data: tickets }] = await Promise.all([
     admin
       .from("doctors")
-      .select("id, full_name, room, ticket_prefix, work_days, opens_at, closes_at")
+      .select("id, full_name, specialty, room, ticket_prefix, work_days, opens_at, closes_at")
       .eq("is_active", true)
       .order("ticket_prefix"),
     admin
@@ -58,7 +62,11 @@ export async function getQueueBoard(): Promise<BoardDoctor[]> {
       id: d.id,
       prefix: d.ticket_prefix,
       name: d.full_name,
+      specialty: d.specialty,
       room: d.room,
+      workDays: d.work_days,
+      opensAt: d.opens_at,
+      closesAt: d.closes_at,
       nowServing: serving ? ticketCode(d.ticket_prefix, serving.ticket_number) : null,
       waiting: waiting.length,
       waitMinutes: lastEnd ? (minutesUntil(new Date(lastEnd).toISOString()) ?? 0) : 0,

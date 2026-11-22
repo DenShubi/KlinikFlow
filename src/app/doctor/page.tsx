@@ -42,7 +42,11 @@ export default async function DoctorPage() {
   }
 
   const [{ data: doctor }, { data: tickets, error }] = await Promise.all([
-    supabase.from("doctors").select("full_name, room, ticket_prefix").eq("id", staff.doctorId).single(),
+    supabase
+      .from("doctors")
+      .select("full_name, specialty, room, ticket_prefix")
+      .eq("id", staff.doctorId)
+      .single(),
     supabase
       .from("queue_tickets")
       .select(
@@ -83,7 +87,7 @@ export default async function DoctorPage() {
       <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
         <PageTitle
           title="Antrean saya"
-          sub={`${doctor?.room ?? "Ruang periksa"} · ${formatClinicDate(today)}`}
+          sub={`${doctor?.specialty ?? "Dokter Umum"} · ${doctor?.room ?? "Ruang periksa"} · ${formatClinicDate(today)}`}
           aside={<LiveRefresh serviceDate={today} />}
         />
 

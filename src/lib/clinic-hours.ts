@@ -1,10 +1,17 @@
-import { CLINIC_TIME_ZONE } from "@/lib/clinic-time";
+import { CLINIC_TIME_ZONE, clinicToday } from "@/lib/clinic-time";
 
 // Working hours of a doctor (columns of public.doctors), in clinic time (WIB).
 export type DoctorHours = {
   work_days: number[]; // ISO weekdays, 1 = Monday ... 7 = Sunday
   opens_at: string; // "08:00:00"
   closes_at: string; // "16:00:00"
+};
+
+export type ServiceDateOption = {
+  date: string; // YYYY-MM-DD
+  label: string; // "Hari ini", "Besok", "Sen, 23 Nov"
+  sublabel: string; // "22 Nov" or "08.00-16.00"
+  isToday: boolean;
 };
 
 export type Availability = {
@@ -78,4 +85,127 @@ export function doctorAvailability(h: DoctorHours, now: Date = new Date()): Avai
     }
   }
   return { open: false, hours, days, note: "Tutup" };
+}
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const MAX_BOOKING_DAYS_AHEAD = 14;
+
+function addDaysIso(isoDate: string, days: number): string {
+  const dt = new Date(`${isoDate}T00:00:00Z`);
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return dt.toISOString().slice(0, 10);
+}
+
+function isoWeekdayOfDate(isoDate: string): number {
+  const day = new Date(`${isoDate}T00:00:00Z`).getUTCDay(); // 0=Sun..6=Sat
+  return day === 0 ? 7 : day;
+}
+
+function shortDayMonth(isoDate: string): string {
+  return new Intl.DateTimeFormat("id-ID", {
+    timeZone: "UTC",
+    day: "numeric",
+    month: "short",
+  }).format(new Date(`${isoDate}T00:00:00Z`));
+}
+
+function shortWeekdayDate(isoDate: string): string {
+  return new Intl.DateTimeFormat("id-ID", {
+    timeZone: "UTC",
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  }).format(new Date(`${isoDate}T00:00:00Z`));
+}
+
+// Build upcoming valid working dates for a doctor (up to `count` dates within 14 days).
+export function upcomingServiceDates(
+  h: DoctorHours,
+  count = 6,
+  now: Date = new Date(),
+): ServiceDateOption[] {
+  const today = clinicToday(now);
+  const { minutes } = clinicClock(now);
+  const alwaysOpen = clinicAlwaysOpen();
+  const options: ServiceDateOption[] = [];
+
+  for (let offset = 0; offset <= MAX_BOOKING_DAYS_AHEAD && options.length < count; offset += 1) {
+    const date = addDaysIso(today, offset);
+    const weekday = isoWeekdayOfDate(date);
+    const isToday = offset === 0;
+
+    if (isToday) {
+      const canBookToday =
+        alwaysOpen || (h.work_days.includes(weekday) && minutes < toMinutes(h.closes_at));
+      if (!canBookToday) continue;
+      options.push({
+        date,
+        label: "Hari ini",
+        sublabel: shortDayMonth(date),
+        isToday: true,
+      });
+      continue;
+    }
+
+    if (!h.work_days.includes(weekday)) continue;
+    options.push({
+      date,
+      label: offset === 1 ? "Besok" : shortWeekdayDate(date),
+      sublabel: offset === 1 ? shortDayMonth(date) : `${formatTime(h.opens_at)} WIB`,
+      isToday: false,
+    });
+  }
+
+  return options;
+}
+
+export function isDoctorWorkingOnDate(
+  h: DoctorHours,
+  serviceDate: string,
+  now: Date = new Date(),
+): { ok: boolean; reason?: string } {
+  if (!ISO_DATE.test(serviceDate)) {
+    return { ok: false, reason: "Tanggal kunjungan tidak valid." };
+  }
+
+  const today = clinicToday(now);
+  if (serviceDate < today) {
+    return { ok: false, reason: "Tanggal kunjungan tidak boleh di masa lalu." };
+  }
+
+  const maxDate = addDaysIso(today, MAX_BOOKING_DAYS_AHEAD);
+  if (serviceDate > maxDate) {
+    return { ok: false, reason: "Pendaftaran maksimal 14 hari ke depan." };
+  }
+
+  const alwaysOpen = clinicAlwaysOpen();
+  const weekday = isoWeekdayOfDate(serviceDate);
+
+  if (serviceDate === today) {
+    if (alwaysOpen) return { ok: true };
+    const { minutes } = clinicClock(now);
+    if (!h.work_days.includes(weekday)) {
+      return { ok: false, reason: "Dokter tidak praktik hari ini. Pilih tanggal praktik berikutnya." };
+    }
+    if (minutes >= toMinutes(h.closes_at)) {
+      return { ok: false, reason: "Jam praktik hari ini sudah selesai. Pilih tanggal besok atau berikutnya." };
+    }
+    return { ok: true };
+  }
+
+  if (!h.work_days.includes(weekday)) {
+    return { ok: false, reason: `Dokter praktik pada ${formatWorkDays(h.work_days)}.` };
+  }
+
+  return { ok: true };
+}
+
+// Returns UTC epoch ms for the doctor's closing time on a given YYYY-MM-DD (WIB = UTC+7).
+export function clinicCloseTimestampMs(serviceDate: string, closesAt: string): number {
+  const hhmmss = closesAt.length === 5 ? `${closesAt}:00` : closesAt.slice(0, 8);
+  return Date.parse(`${serviceDate}T${hhmmss}+07:00`);
+}
+
+export function formatOpeningTime(opensAt: string): string {
+  return formatTime(opensAt);
 }

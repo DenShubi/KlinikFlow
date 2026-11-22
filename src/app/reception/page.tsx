@@ -126,7 +126,10 @@ export default async function ReceptionPage() {
   const today = clinicToday();
 
   const [{ data: doctors }, { data: tickets, error }] = await Promise.all([
-    supabase.from("doctors").select("id, full_name, room, ticket_prefix, work_days, opens_at, closes_at").order("ticket_prefix"),
+    supabase
+      .from("doctors")
+      .select("id, full_name, specialty, room, ticket_prefix, work_days, opens_at, closes_at")
+      .order("ticket_prefix"),
     supabase
       .from("queue_tickets")
       .select(
@@ -156,6 +159,7 @@ export default async function ReceptionPage() {
                 id: d.id,
                 prefix: d.ticket_prefix,
                 name: d.full_name,
+                specialty: d.specialty,
                 room: d.room,
                 open: hours.get(d.id)?.open ?? true,
                 note: hours.get(d.id)?.note ?? "",
@@ -179,7 +183,8 @@ export default async function ReceptionPage() {
                       <div>
                         <h2 className="font-bold">{doctor.full_name}</h2>
                         <p className="text-[13px] text-muted">
-                          {doctor.room}
+                          {doctor.specialty}
+                          {doctor.room ? ` · ${doctor.room}` : ""}
                           {hours.get(doctor.id) ? (
                             <span className={hours.get(doctor.id)!.open ? "" : "font-semibold text-warn"}>
                               {" · "}

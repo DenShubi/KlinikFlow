@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { Brand } from "@/components/brand";
 import { ArrowLeftIcon } from "@/components/icons";
+import { formatOpeningTime, upcomingServiceDates } from "@/lib/clinic-hours";
 import { getQueueBoard } from "@/lib/queue/board";
 
 import { IntakeForm, type DoctorOption } from "./intake-form";
@@ -17,6 +18,7 @@ export default async function IntakePage() {
   const options: DoctorOption[] = board.map((d) => ({
     id: d.id,
     name: d.name,
+    specialty: d.specialty,
     room: d.room,
     prefix: d.prefix,
     waiting: d.waiting,
@@ -24,7 +26,15 @@ export default async function IntakePage() {
     open: d.availability.open,
     hoursNote: d.availability.note,
     hours: `${d.availability.days} · ${d.availability.hours}`,
+    opensLabel: formatOpeningTime(d.opensAt),
+    dates: upcomingServiceDates({
+      work_days: d.workDays,
+      opens_at: d.opensAt,
+      closes_at: d.closesAt,
+    }),
   }));
+
+  const hasAnyBookableDate = options.some((d) => d.dates.length > 0);
 
   return (
     <div className="flex flex-1 flex-col">
@@ -39,31 +49,13 @@ export default async function IntakePage() {
       <main className="mx-auto flex w-full max-w-[480px] flex-1 flex-col gap-6 px-4 pb-12 pt-6">
         <div className="flex flex-col gap-1.5">
           <h1 className="text-[31px] font-extrabold leading-tight tracking-[-0.035em]">Ambil antrean</h1>
-          <p className="text-muted">Nomor Anda langsung jadi setelah daftar.</p>
+          <p className="text-muted">Pilih dokter dan tanggal kunjungan. Jam panggil dihitung otomatis.</p>
         </div>
 
-        {options.length === 0 ? (
+        {options.length === 0 || !hasAnyBookableDate ? (
           <div className="card px-5 py-8 text-center">
-            <p className="font-semibold">Belum ada dokter praktik</p>
+            <p className="font-semibold">Belum ada jadwal dokter tersedia</p>
             <p className="mt-1 text-sm text-muted">Coba lagi nanti.</p>
-          </div>
-        ) : options.every((d) => !d.open) ? (
-          <div className="card flex flex-col gap-4 px-5 py-6">
-            <div>
-              <p className="text-lg font-bold">Klinik sedang tutup</p>
-              <p className="mt-1 text-sm text-muted">Pendaftaran dibuka lagi saat jam praktik.</p>
-            </div>
-            <ul className="flex flex-col gap-3 border-t border-line-soft pt-4">
-              {options.map((d) => (
-                <li key={d.id} className="flex items-start justify-between gap-3 text-sm">
-                  <span>
-                    <span className="block font-semibold">{d.name}</span>
-                    <span className="text-muted">{d.hours}</span>
-                  </span>
-                  <span className="shrink-0 text-right text-muted">{d.hoursNote}</span>
-                </li>
-              ))}
-            </ul>
           </div>
         ) : (
           <IntakeForm doctors={options} />

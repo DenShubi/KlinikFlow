@@ -34,7 +34,8 @@ export async function createTicket(_prev: ActionResult, formData: FormData): Pro
   if (!doctorId) return { ok: false, error: "Pilih dokter." };
   if (!fullName) return { ok: false, error: "Nama pasien wajib diisi." };
   if (!complaint) return { ok: false, error: "Keluhan wajib diisi." };
-  if (phone === "invalid") return { ok: false, error: "Nomor WhatsApp tidak valid." };
+  if (!phone) return { ok: false, error: "Nomor WhatsApp wajib diisi." };
+  if (phone === "invalid") return { ok: false, error: "Nomor WhatsApp tidak valid. Contoh: 0812 3456 7890." };
 
   const supabase = await createClient();
   const { data: patient, error: patientError } = await supabase

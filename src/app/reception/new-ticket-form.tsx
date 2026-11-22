@@ -13,6 +13,7 @@ export type ReceptionDoctor = {
   id: string;
   prefix: string;
   name: string;
+  specialty: string;
   room: string | null;
   open: boolean;
   note: string; // "Buka sampai 16.00" / "Tutup · buka Senin 08.00"
@@ -113,7 +114,7 @@ function Fields({ doctors, defaultDoctor }: { doctors: ReceptionDoctor[]; defaul
         <select name="doctorId" required className="field" defaultValue={defaultDoctor}>
           {doctors.map((d) => (
             <option key={d.id} value={d.id}>
-              {d.prefix} · {d.name}
+              {d.prefix} · {d.name} · {d.specialty}
               {d.room ? ` (${d.room})` : ""}
               {d.open ? "" : " · tutup"}
             </option>
@@ -150,10 +151,15 @@ function Fields({ doctors, defaultDoctor }: { doctors: ReceptionDoctor[]; defaul
 
       <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-1">
         <label className={LABEL}>
-          <span>
-            WhatsApp <span className="font-normal text-muted">(opsional)</span>
-          </span>
-          <input name="phone" type="tel" inputMode="tel" placeholder="08xx" className="field" />
+          Nomor WhatsApp
+          <input
+            name="phone"
+            required
+            type="tel"
+            inputMode="tel"
+            placeholder="0812 3456 7890"
+            className="field"
+          />
         </label>
         <label className={LABEL}>
           <span>

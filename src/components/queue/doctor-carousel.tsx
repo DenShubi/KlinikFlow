@@ -153,8 +153,11 @@ function DoctorTicket({ d }: { d: BoardDoctor }) {
         >
           {d.nowServing ?? `${d.prefix}-000`}
         </p>
-        <div className="flex justify-between gap-3 text-sm">
-          <span className="truncate font-semibold">{d.name}</span>
+        <div className="flex items-start justify-between gap-3 text-sm">
+          <div className="min-w-0">
+            <p className="truncate font-semibold">{d.name}</p>
+            <p className="truncate text-xs text-muted">{d.specialty}</p>
+          </div>
           <span className="shrink-0 text-muted">{d.room}</span>
         </div>
       </div>
