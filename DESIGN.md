@@ -48,7 +48,7 @@ Distribution ≈ 60 canvas/surface, 30 navy text, 10 indigo accent. Status is ne
 - Spacing base 4px; tight 8–12 inside groups, 24–40 between sections.
 - Radius: **10px** (controls, chips) and **20px** (cards, ticket). Pills only for status chips.
 - Shadow: one approach — soft navy elevation (`--shadow-card`, ticket uses `drop-shadow` so the notches stay transparent). Elevated surfaces have no border.
-- Motion: `--ease-out` cubic-bezier(.2,.8,.2,1); 120 / 200 / 320ms. Only transform + opacity. Ticket enters with a 320ms rise. All disabled under `prefers-reduced-motion`.
+- Motion: `--ease-out` cubic-bezier(.2,.8,.2,1); 120 / 200 / 320ms. Only transform + opacity. Ticket enters with a 320ms rise. Under `prefers-reduced-motion` all movement is off; opacity cross-fades (class `fade-safe`, e.g. the home doctor carousel) stay, since nothing moves.
 
 ## Craft decisions
 

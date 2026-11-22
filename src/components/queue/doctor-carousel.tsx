@@ -10,12 +10,14 @@ import type { BoardDoctor } from "@/lib/queue/board";
 
 const POLL_MS = 60_000;
 
-// Home-page visual: one live ticket per doctor showing the queue right now.
-// Swipe (or use the dots) to see the next doctor.
+// Home-page visual: one live ticket per doctor showing the queue right now,
+// tilted like a ticket lying on the desk. Tickets are stacked and cross-fade
+// (an opacity fade, kept even with reduced motion: nothing moves);
+// swipe, the arrow keys or the dots switch doctors.
 export function DoctorCarousel({ doctors }: { doctors: BoardDoctor[] }) {
   const router = useRouter();
-  const trackRef = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(0);
+  const touchX = useRef<number | null>(null);
   const topics = doctors.map((d) => d.topic).join("|");
 
   // Stay current: refresh when any of these queues changes (public broadcast,
@@ -39,57 +41,65 @@ export function DoctorCarousel({ doctors }: { doctors: BoardDoctor[] }) {
     };
   }, [topics, router]);
 
-  function onScroll() {
-    const el = trackRef.current;
-    if (!el || el.clientWidth === 0) return;
-    setIndex(Math.min(doctors.length - 1, Math.max(0, Math.round(el.scrollLeft / el.clientWidth))));
+  const count = doctors.length;
+  const current = Math.min(index, count - 1);
+  const step = (delta: number) => setIndex((i) => (i + delta + count) % count);
+
+  function onKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "ArrowRight") step(1);
+    else if (e.key === "ArrowLeft") step(-1);
   }
 
-  function goTo(i: number) {
-    const el = trackRef.current;
-    if (!el) return;
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    el.scrollTo({ left: i * el.clientWidth, behavior: reduce ? "auto" : "smooth" });
+  function onTouchEnd(e: React.TouchEvent) {
+    if (touchX.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchX.current;
+    touchX.current = null;
+    if (Math.abs(dx) > 40) step(dx < 0 ? 1 : -1);
   }
 
   return (
     <div className="flex flex-col gap-3">
       <div
-        ref={trackRef}
-        onScroll={onScroll}
         tabIndex={0}
         role="region"
         aria-roledescription="carousel"
         aria-label="Antrean tiap dokter saat ini"
-        className="flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain rounded-[20px] outline-offset-4 [scrollbar-width:none] focus-visible:outline-2 focus-visible:outline-accent [&::-webkit-scrollbar]:hidden"
+        onKeyDown={onKeyDown}
+        onTouchStart={(e) => (touchX.current = e.touches[0].clientX)}
+        onTouchEnd={onTouchEnd}
+        className="grid rounded-[20px] outline-offset-8 focus-visible:outline-2 focus-visible:outline-accent lg:rotate-[2deg]"
       >
         {doctors.map((d, i) => (
           <div
             key={d.id}
             role="group"
             aria-roledescription="slide"
-            aria-label={`${i + 1} dari ${doctors.length}: ${d.name}`}
-            className="w-full shrink-0 snap-center px-3 py-4"
+            aria-label={`${i + 1} dari ${count}: ${d.name}`}
+            aria-hidden={i !== current}
+            inert={i !== current}
+            className={`fade-safe [grid-area:1/1] transition-opacity duration-[var(--dur-3)] ease-[var(--ease-out)] ${
+              i === current ? "opacity-100" : "pointer-events-none opacity-0"
+            }`}
           >
             <DoctorTicket d={d} />
           </div>
         ))}
       </div>
 
-      {doctors.length > 1 ? (
-        <div className="flex justify-center gap-1.5" aria-label="Pilih dokter">
+      {count > 1 ? (
+        <div className="mt-2 flex justify-center gap-1.5" aria-label="Pilih dokter">
           {doctors.map((d, i) => (
             <button
               key={d.id}
               type="button"
-              onClick={() => goTo(i)}
+              onClick={() => setIndex(i)}
               aria-label={`Dokter ${d.prefix}: ${d.name}`}
-              aria-current={i === index ? "true" : undefined}
+              aria-current={i === current ? "true" : undefined}
               className="grid h-6 min-w-6 place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-accent"
             >
               <span
                 className={`block h-2 rounded-full transition-[width,background-color] duration-[var(--dur-2)] motion-reduce:transition-none ${
-                  i === index ? "w-6 bg-accent" : "w-2 bg-line"
+                  i === current ? "w-6 bg-accent" : "w-2 bg-line"
                 }`}
               />
             </button>

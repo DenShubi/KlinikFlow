@@ -269,4 +269,9 @@ body {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+
+  /* Opacity cross-fades move nothing on screen, so they stay on. */
+  .fade-safe {
+    transition-duration: var(--dur-3) !important;
+  }
 }

@@ -53,10 +53,10 @@ export default function Home() {
           </ol>
         </section>
 
-        <div className="mx-auto w-full max-w-[404px]">
+        <div className="mx-auto w-full max-w-[380px]">
           <Suspense
             fallback={
-              <div className="px-3 py-4" aria-hidden="true">
+              <div className="lg:rotate-[2deg]" aria-hidden="true">
                 <SampleTicket />
               </div>
             }
@@ -75,7 +75,7 @@ async function LiveQueues() {
   const doctors = await getQueueBoard();
   if (doctors.length === 0) {
     return (
-      <div className="px-3 py-4" aria-hidden="true">
+      <div className="lg:rotate-[2deg]" aria-hidden="true">
         <SampleTicket />
       </div>
     );
