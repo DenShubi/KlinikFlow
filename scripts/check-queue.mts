@@ -19,6 +19,7 @@ type Client = SupabaseClient<Database>;
 
 const TEST_DATE = "2099-01-01";
 const SYNC_DATE = "2099-01-02";
+const ABSENT_DATE = "2099-01-06";
 const TEST_TAG = "[test:queue]";
 
 function requireEnv(name: string): string {
@@ -85,7 +86,7 @@ async function main() {
   if (!docA) throw new Error("Doctor A not found; load the seed.");
 
   // Clean leftovers from an interrupted earlier run.
-  await admin.from("queue_tickets").delete().in("service_date", [TEST_DATE, SYNC_DATE]);
+  await admin.from("queue_tickets").delete().in("service_date", [TEST_DATE, SYNC_DATE, ABSENT_DATE]);
   await admin.from("patients").delete().like("full_name", `${TEST_TAG}%`);
 
   const { data: patients, error: patientError } = await receptionist
@@ -142,8 +143,10 @@ async function main() {
       .select("ticket_number, estimated_call_at")
       .eq("service_date", TEST_DATE)
       .order("position");
-    const minutes = etas?.map((t) => Math.round((Date.parse(t.estimated_call_at!) - Date.now()) / 60000));
-    check("wait estimates add up (0, 10, 18 min)", JSON.stringify(minutes) === "[0,10,18]", JSON.stringify(minutes));
+    // A future date starts at the doctor's opening time, so compare the steps between patients.
+    const times = etas?.map((t) => Date.parse(t.estimated_call_at!)) ?? [];
+    const steps = times.slice(1).map((t, i) => Math.round((t - times[i]) / 60000));
+    check("wait estimates step by the predicted minutes ahead (10, 8)", JSON.stringify(steps) === "[10,8]", JSON.stringify(steps));
 
     console.log("\nCall next, start, finish");
     const wrong = await doctorB.rpc("queue_call_next", { p_doctor_id: docA, p_service_date: TEST_DATE });
@@ -229,11 +232,40 @@ async function main() {
     check("#2 rejoins behind the patients present (#3 called, #4, then #2)", after === "[3,4,2]", after);
     const direct = await receptionist.from("queue_tickets").update({ position: 1 }).eq("id", h2.data!.id).select("id");
     check("tickets can no longer be edited outside the queue functions", !!direct.error, direct.error?.code);
+
+    console.log("\nAuto-defer (called but not coming in)");
+    const ab = [];
+    for (const i of [0, 1, 2]) {
+      const t = await receptionist.rpc("queue_create_ticket", {
+        p_doctor_id: docA,
+        p_patient_id: patients[i].id,
+        p_channel: "walk_in",
+        p_complaint: `${TEST_TAG} Kontrol`,
+        p_predicted_minutes: 10,
+        p_prediction_source: "fallback",
+        p_service_date: ABSENT_DATE,
+      });
+      await receptionist.rpc("queue_check_in", { p_ticket_id: t.data!.id });
+      ab.push(t.data!);
+    }
+    await doctorA.rpc("queue_call_next", { p_doctor_id: docA, p_service_date: ABSENT_DATE });
+    const deniedAbsent = await doctorB.rpc("queue_mark_absent", { p_ticket_id: ab[0].id });
+    check("doctor B cannot mark doctor A's patient absent", deniedAbsent.error?.message === "not_allowed", deniedAbsent.error?.message);
+    const absent = await doctorA.rpc("queue_mark_absent", { p_ticket_id: ab[0].id });
+    check("called #1 does not come in -> back to waiting, Ditunda 1x", absent.data?.status === "waiting" && absent.data.defer_count === 1, absent.error?.message);
+    const { data: abOrder } = await admin
+      .from("queue_tickets")
+      .select("ticket_number")
+      .eq("service_date", ABSENT_DATE)
+      .eq("status", "waiting")
+      .order("position");
+    const abSeq = JSON.stringify(abOrder?.map((t) => t.ticket_number));
+    check("#1 moved two turns back (order 2, 3, 1)", abSeq === "[2,3,1]", abSeq);
   } finally {
     await patient.removeChannel(patientChannel);
     await recLive.close();
     await docBLive.close();
-    await admin.from("queue_tickets").delete().in("service_date", [TEST_DATE, SYNC_DATE]);
+    await admin.from("queue_tickets").delete().in("service_date", [TEST_DATE, SYNC_DATE, ABSENT_DATE]);
     await admin.from("patients").delete().like("full_name", `${TEST_TAG}%`);
     console.log("\nTest data removed.");
   }

@@ -10,6 +10,7 @@ import { TicketLive } from "@/components/queue/ticket-live";
 import { PrintLabel, Ticket } from "@/components/ticket";
 import { clinicToday, formatClinicDate, formatClinicTime, minutesUntil } from "@/lib/clinic-time";
 import { isUuid, queueTopic, type TicketPublicStatus } from "@/lib/queue/public-status";
+import { ABSENT_AFTER_MINUTES, MAX_DEFERS, REJOIN_OFFSET } from "@/lib/queue/rules";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -112,6 +113,9 @@ function Stub({ t }: { t: TicketPublicStatus }) {
           <p className="text-[17px] text-white/90">
             Silakan masuk ke <strong className="font-bold text-white">{t.room ?? "ruang periksa"}</strong>.
           </p>
+          <p className="mt-1 text-sm text-white/80">
+            Masuk dalam {ABSENT_AFTER_MINUTES} menit. Jika tidak, giliran Anda dimundurkan {REJOIN_OFFSET} pasien.
+          </p>
         </div>
       );
     case "in_consultation":
@@ -202,7 +206,10 @@ function WaitingStub({ t }: { t: TicketPublicStatus }) {
       {t.defer_count > 0 ? (
         <p className="flex gap-2 rounded-[10px] bg-warn-soft px-4 py-3 text-sm text-warn">
           <AlertIcon size={18} className="mt-px shrink-0" />
-          Anda tidak ada saat dipanggil. Segera lapor ke resepsionis.
+          <span>
+            Anda tidak masuk saat dipanggil, jadi giliran Anda dimundurkan. Tetap di ruang tunggu.
+            {t.defer_count >= MAX_DEFERS ? " Jika tidak masuk lagi saat dipanggil, tiket dibatalkan." : ""}
+          </span>
         </p>
       ) : t.checked_in ? (
         <p className="flex items-center gap-2 rounded-[10px] bg-ok-soft px-4 py-3 text-sm font-medium text-ok">

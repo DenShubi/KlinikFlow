@@ -8,9 +8,9 @@ Built for **STACK 2026**. All patient data in this repository and in the demo
 is **synthetic**.
 
 > **Status: semifinal build.** The hybrid queue, live updates, wait estimates,
-> patient intake and ticket page, doctor dashboard and role-based access work
-> today. Auto-defer and WhatsApp alerts are scheduled for December and are
-> marked *(planned)* below.
+> patient intake and ticket page, doctor dashboard, auto-defer and role-based
+> access work today. WhatsApp alerts are scheduled for December and are marked
+> *(planned)* below.
 
 ## Try the demo
 
@@ -65,8 +65,10 @@ queue stalls.
 - **Wait estimates.** Each consultation's expected length is estimated from the
   patient's complaint. If the estimate is unavailable, a default duration is
   used and the screen says so.
-- **Auto-defer** *(planned)*. A patient who is absent when called moves back
-  two places automatically instead of blocking the queue.
+- **Auto-defer.** A patient who is called but does not come in moves back two
+  places instead of blocking the queue: the doctor presses *Tidak hadir*, or it
+  happens on its own after 5 minutes. After two deferrals, the next absence
+  removes the ticket.
 - **WhatsApp alerts** *(planned)*. Patients get a message when their visit time
   changes and when they are three turns away, so they can wait elsewhere.
   Until then, the live ticket page tells them when to come.
@@ -291,6 +293,7 @@ directly; the functions check each caller's role themselves.
 | `queue_start_consultation` | Doctor, receptionist | The called patient is with the doctor |
 | `queue_finish_consultation` | Doctor, receptionist | Ends the consultation; `actual_minutes` is saved |
 | `queue_cancel_ticket` | Doctor, receptionist | Removes a waiting or called ticket |
+| `queue_mark_absent` | Doctor (own queue), receptionist | A called patient did not come in: moves them back two turns, or marks them *Tidak hadir* on the third absence (see Auto-defer) |
 
 ### Hybrid synchronizer
 
@@ -314,6 +317,26 @@ Example: queue A-001 (walk-in), A-002 (remote), A-003, A-004 (walk-in). After
 A-001, the doctor calls next while A-002 is still at home, so A-003 is called
 and A-002 misses its turn. When A-002 arrives, the order becomes A-003 (with
 the doctor), A-004, A-002.
+
+### Auto-defer
+
+A patient who is **at the clinic** and is **called** but does not come into
+the room ([`auto_defer` migration](supabase/migrations/20261123112326_auto_defer.sql)):
+
+1. **Moved back two turns.** They go back behind the next two patients who are
+   present, their ticket shows *Ditunda 1×*, and their ticket page tells them
+   to stay in the waiting room. They are called again after those two.
+2. **Triggered by the doctor or by time.** The doctor presses *Tidak hadir*
+   on the current-patient card, or a `pg_cron` job does it once a called
+   patient has not been started for 5 minutes.
+3. **Third absence.** A patient already deferred twice becomes *Tidak hadir*
+   (`no_show`) and leaves the queue; the receptionist can register them again.
+
+This is different from a *missed turn* (hybrid synchronizer), which is for a
+patient who has not arrived at the clinic when their turn comes. The numbers
+(2 places, 5 minutes, 2 deferrals) are `private.rejoin_offset()`,
+`private.absent_after()` and `private.max_defers()` in the database and
+`src/lib/queue/rules.ts` in the app.
 
 **Wait estimate.** After every change, each waiting patient's
 `estimated_call_at` is recalculated: the remaining time of the current
@@ -417,6 +440,8 @@ build time, so set them before running `npm run build` or deploying.
 | `npm run test:auth` | Check which staff pages each role can open (needs `npm run dev`) |
 | `npm run test:queue` | Run the whole queue flow against the database and check Realtime |
 | `npm run demo:refresh -- --yes` | Replace today's queue with a fresh synthetic one (never touches real patients) |
+| `npm run demo:missed-turn -- <step>` | Step-by-step demo (steps: reset, next, arrive, show): a remote patient misses their turn and rejoins |
+| `npm run demo:absent -- <step>` | Step-by-step demo (steps: reset, call, absent, show): a called patient does not come in and is moved back |
 | `npm run env:local` / `env:hosted` | Point `.env.local` at the local Supabase stack or back at the hosted project |
 
 ## Project structure

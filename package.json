@@ -22,7 +22,8 @@
     "demo:refresh": "node --env-file=.env.local scripts/demo-refresh.mts",
     "env:local": "node scripts/use-supabase.mts local",
     "env:hosted": "node scripts/use-supabase.mts hosted",
-    "demo:missed-turn": "node --env-file=.env.local scripts/demo-missed-turn.mts"
+    "demo:missed-turn": "node --env-file=.env.local scripts/demo-missed-turn.mts",
+    "demo:absent": "node --env-file=.env.local scripts/demo-absent.mts"
   },
   "dependencies": {
     "@google/genai": "^3.6.1",

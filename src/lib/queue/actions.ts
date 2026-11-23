@@ -85,7 +85,12 @@ export async function createTicket(_prev: ActionResult, formData: FormData): Pro
 }
 
 async function runTicketOperation(
-  fn: "queue_check_in" | "queue_start_consultation" | "queue_finish_consultation" | "queue_cancel_ticket",
+  fn:
+    | "queue_check_in"
+    | "queue_start_consultation"
+    | "queue_finish_consultation"
+    | "queue_cancel_ticket"
+    | "queue_mark_absent",
   ticketId: string,
 ): Promise<ActionResult> {
   await requireStaff();
@@ -120,4 +125,11 @@ export async function finishConsultation(ticketId: string): Promise<ActionResult
 
 export async function cancelTicket(ticketId: string): Promise<ActionResult> {
   return runTicketOperation("queue_cancel_ticket", ticketId);
+}
+
+// Called patient did not come in: moves back two turns, or leaves the queue
+// on the third absence (auto-defer migration). Also happens automatically
+// after 5 minutes.
+export async function markAbsent(ticketId: string): Promise<ActionResult> {
+  return runTicketOperation("queue_mark_absent", ticketId);
 }

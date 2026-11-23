@@ -536,6 +536,45 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      queue_mark_absent: {
+        Args: { p_ticket_id: string }
+        Returns: {
+          actual_minutes: number | null
+          ai_summary: string | null
+          called_at: string | null
+          channel: Database["public"]["Enums"]["ticket_channel"]
+          checked_in_at: string | null
+          complaint: string
+          created_at: string
+          created_by: string | null
+          defer_count: number
+          doctor_id: string
+          ended_at: string | null
+          estimated_call_at: string | null
+          id: string
+          is_follow_up: boolean
+          missed_turn_at: string | null
+          patient_id: string
+          position: number
+          predicted_minutes: number | null
+          prediction_confidence: number | null
+          prediction_model: string | null
+          prediction_source:
+            | Database["public"]["Enums"]["prediction_source"]
+            | null
+          service_date: string
+          started_at: string | null
+          status: Database["public"]["Enums"]["ticket_status"]
+          ticket_number: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "queue_tickets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       queue_start_consultation: {
         Args: { p_ticket_id: string }
         Returns: {

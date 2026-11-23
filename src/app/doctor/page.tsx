@@ -10,8 +10,9 @@ import { PrintLabel, Ticket } from "@/components/ticket";
 import { ageInYears } from "@/lib/age";
 import { requireStaff } from "@/lib/auth/dal";
 import { clinicToday, formatClinicDate, formatClinicTime, minutesUntil } from "@/lib/clinic-time";
-import { callNext, finishConsultation, startConsultation } from "@/lib/queue/actions";
+import { callNext, finishConsultation, markAbsent, startConsultation } from "@/lib/queue/actions";
 import { ticketCode } from "@/lib/queue/labels";
+import { ABSENT_AFTER_MINUTES, MAX_DEFERS } from "@/lib/queue/rules";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -122,13 +123,25 @@ export default async function DoctorPage() {
                     className="w-full"
                   />
                 ) : called ? (
-                  <ActionButton
-                    action={startConsultation.bind(null, called.id)}
-                    label="Pasien masuk · Mulai periksa"
-                    variant="onAccent"
-                    size="lg"
-                    className="w-full"
-                  />
+                  <div className="flex flex-col gap-2.5">
+                    <ActionButton
+                      action={startConsultation.bind(null, called.id)}
+                      label="Pasien masuk · Mulai periksa"
+                      variant="onAccent"
+                      size="lg"
+                      className="w-full"
+                    />
+                    <ActionButton
+                      action={markAbsent.bind(null, called.id)}
+                      label={called.defer_count >= MAX_DEFERS ? "Tidak hadir · keluarkan dari antrean" : "Tidak hadir · mundurkan 2 giliran"}
+                      variant="secondary"
+                      className="w-full"
+                    />
+                    <p className="text-center text-xs text-white/80">
+                      {called.defer_count > 0 ? `Sudah ditunda ${called.defer_count}×. ` : ""}
+                      Otomatis dimundurkan jika belum masuk dalam {ABSENT_AFTER_MINUTES} menit.
+                    </p>
+                  </div>
                 ) : (
                   <ActionButton
                     action={callNext.bind(null, staff.doctorId)}
