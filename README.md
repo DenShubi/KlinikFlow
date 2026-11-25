@@ -245,8 +245,8 @@ role, stored in the `profiles` table, which only trusted server code can change.
 
 | Role | Signs in to | Can see | Can change |
 | --- | --- | --- | --- |
-| Receptionist | `/reception` | Every doctor's queue, all patients with WhatsApp numbers, sent messages | Add and edit patients; add tickets, mark arrivals, cancel (through the queue functions) |
-| Doctor | `/doctor` | Only their own queue and the patients in it, with complaints and AI summaries | Call, start and finish patients in their own queue (through the queue functions) |
+| Receptionist | `/reception` | Every doctor's queue, all patients, their WhatsApp numbers (through `reception_patient_phones`), sent messages | Add and edit patients; add tickets, mark arrivals, cancel (through the queue functions) |
+| Doctor | `/doctor` | Only their own queue and the patients in it (name, birth date), with complaints and AI summaries; no phone numbers | Call, start and finish patients in their own queue (through the queue functions) |
 
 The rules are enforced three times: the proxy sends signed-out visitors to
 `/login`, each page checks the role (`src/lib/auth/dal.ts`), and row-level
@@ -254,6 +254,15 @@ security in the database
 ([`auth_rls` migration](supabase/migrations/20261120105530_auth_rls.sql))
 decides which rows each role can read or write. Visitors who are not signed in
 can read nothing.
+
+Row-level security filters rows, not columns, so phone numbers are protected
+separately ([`patient_phone_reception_only` migration](supabase/migrations/20261125103634_patient_phone_reception_only.sql)):
+signed-in staff can read every column of `patients` except `phone`, and only
+the receptionist gets numbers, through the function
+`reception_patient_phones(service_date)`. A doctor who queries the Data API
+directly is refused the column and the function. Queries on `patients` must
+therefore name their columns (`select *` is refused), and a new column needs
+to be added to the grant in that migration before staff can read it.
 
 `npm run staff:seed` creates these demo accounts, all with the password in
 `DEMO_STAFF_PASSWORD`:

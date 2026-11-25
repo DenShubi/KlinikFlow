@@ -40,8 +40,10 @@ function check(label: string, ok: boolean, detail: string) {
   console.log(`${ok ? "PASS" : "FAIL"}  ${label.padEnd(58)} ${detail}`);
 }
 
+// Counts by id: staff may not read every column of patients (phone is
+// receptionist-only), so `select *` is refused there.
 async function count(client: Client, table: Table): Promise<number> {
-  const { count: n, error } = await client.from(table).select("*", { count: "exact", head: true });
+  const { count: n, error } = await client.from(table).select("id", { count: "exact", head: true });
   if (error) throw new Error(`${table}: ${error.message}`);
   return n ?? 0;
 }
@@ -49,7 +51,7 @@ async function count(client: Client, table: Table): Promise<number> {
 async function countTicketsOf(client: Client, doctorId: string): Promise<number> {
   const { count: n, error } = await client
     .from("queue_tickets")
-    .select("*", { count: "exact", head: true })
+    .select("id", { count: "exact", head: true })
     .eq("doctor_id", doctorId);
   if (error) throw new Error(`queue_tickets: ${error.message}`);
   return n ?? 0;
@@ -89,12 +91,21 @@ async function main() {
     .select("patient_id")
     .eq("doctor_id", docA.id);
   const patientsA = new Set(patientsOfA?.map((r) => r.patient_id)).size;
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+  const { data: todayTickets } = await admin
+    .from("queue_tickets")
+    .select("patient_id, patients (phone)")
+    .eq("service_date", today);
+  const phonesToday = new Set(todayTickets?.filter((t) => t.patients?.phone).map((t) => t.patient_id)).size;
 
   console.log("Anonymous (publishable key, not signed in)");
   for (const table of ["profiles", "doctors", "patients", "queue_tickets", "queue_events", "notifications"] as const) {
-    const n = await count(anon, table);
-    check(`  sees no ${table}`, n === 0, `${n} rows`);
+    // Either no rows (RLS) or no access at all (patients) is a pass.
+    const { count: rows, error: refused } = await anon.from(table).select("id", { count: "exact", head: true });
+    check(`  sees no ${table}`, !!refused || (rows ?? 0) === 0, refused ? "refused" : `${rows ?? 0} rows`);
   }
+  const { error: anonPhones } = await anon.rpc("reception_patient_phones", { p_service_date: today });
+  check("  cannot use the reception phone list", !!anonPhones, anonPhones?.code ?? "allowed!");
 
   console.log("\nReceptionist");
   let n = await count(receptionist, "queue_tickets");
@@ -107,6 +118,14 @@ async function main() {
   check("  sees every staff profile", n === total.profiles, `${n} / ${total.profiles}`);
   n = await count(receptionist, "doctors");
   check("  sees all doctors", n === doctors.length, `${n} / ${doctors.length}`);
+  const { data: phones, error: phonesError } = await receptionist.rpc("reception_patient_phones", { p_service_date: today });
+  check(
+    "  gets today's WhatsApp numbers (reception_patient_phones)",
+    !phonesError && (phones?.length ?? 0) === phonesToday,
+    phonesError?.message ?? `${phones?.length} / ${phonesToday}`,
+  );
+  const { error: recPhoneColumn } = await receptionist.from("patients").select("phone").limit(1);
+  check("  reads phones only through that function, not the table", !!recPhoneColumn, recPhoneColumn?.code ?? "readable");
 
   console.log("\nDoctor A");
   n = await count(doctorA, "queue_tickets");
@@ -119,6 +138,12 @@ async function main() {
   check("  sees only own profile", n === 1, `${n} rows`);
   n = await count(doctorA, "notifications");
   check("  sees no notifications", n === 0, `${n} rows`);
+  const { data: ownPatients, error: ownError } = await doctorA.from("patients").select("full_name, birth_date").limit(1);
+  check("  reads patient name and birth date", !ownError && (ownPatients?.length ?? 0) === 1, ownError?.message ?? "");
+  const { error: phoneError } = await doctorA.from("patients").select("phone").limit(1);
+  check("  cannot read patient phone numbers", !!phoneError, phoneError?.code ?? "readable!");
+  const { error: rpcError } = await doctorA.rpc("reception_patient_phones", { p_service_date: today });
+  check("  cannot use the reception phone list", rpcError?.message === "not_allowed", rpcError?.message ?? "allowed!");
 
   console.log("\nWrites that must be refused");
   const { data: anyPatient } = await admin.from("patients").select("id").limit(1).single();

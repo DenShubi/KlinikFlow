@@ -614,6 +614,13 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      reception_patient_phones: {
+        Args: { p_service_date?: string }
+        Returns: {
+          patient_id: string
+          phone: string
+        }[]
+      }
       ticket_public_status: { Args: { p_ticket_id: string }; Returns: Json }
     }
     Enums: {

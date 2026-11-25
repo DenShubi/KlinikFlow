@@ -125,7 +125,7 @@ export default async function ReceptionPage() {
   const supabase = await createClient();
   const today = clinicToday();
 
-  const [{ data: doctors }, { data: tickets, error }] = await Promise.all([
+  const [{ data: doctors }, { data: rawTickets, error }, { data: phones }] = await Promise.all([
     supabase
       .from("doctors")
       .select("id, full_name, specialty, room, ticket_prefix, work_days, opens_at, closes_at")
@@ -133,11 +133,20 @@ export default async function ReceptionPage() {
     supabase
       .from("queue_tickets")
       .select(
-        "id, doctor_id, ticket_number, position, channel, status, predicted_minutes, defer_count, checked_in_at, estimated_call_at, missed_turn_at, patients (full_name, phone)",
+        "id, doctor_id, patient_id, ticket_number, position, channel, status, predicted_minutes, defer_count, checked_in_at, estimated_call_at, missed_turn_at, patients (full_name)",
       )
       .eq("service_date", today)
       .order("position"),
+    // Phone numbers are not readable from the patients table by staff; only
+    // this receptionist-only function returns them. If it fails, the queue
+    // still shows, just without numbers.
+    supabase.rpc("reception_patient_phones", { p_service_date: today }),
   ]);
+  const phoneOf = new Map((phones ?? []).map((p) => [p.patient_id, p.phone]));
+  const tickets = rawTickets?.map((t) => ({
+    ...t,
+    patients: t.patients ? { full_name: t.patients.full_name, phone: phoneOf.get(t.patient_id) ?? null } : null,
+  }));
   const hours = new Map((doctors ?? []).map((d) => [d.id, doctorAvailability(d)]));
 
   return (
