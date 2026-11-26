@@ -24,7 +24,6 @@ type EvalCase = {
   complaint: string;
   ageGroup?: AgeGroup;
   visitPurpose?: VisitPurpose;
-  isNewPatient?: boolean;
   hasChronicCondition?: boolean;
   expectedRange: [number, number];
   notes?: string;
@@ -240,7 +239,6 @@ async function main(): Promise<void> {
       complaint: item.complaint,
       ageGroup: item.ageGroup,
       visitPurpose: item.visitPurpose,
-      isNewPatient: item.isNewPatient,
       hasChronicCondition: item.hasChronicCondition,
       doctorId: "eval-doctor-01",
     });

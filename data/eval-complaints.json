@@ -1,7 +1,7 @@
 {
   "metadata": {
     "name": "KlinikFlow Synthetic Triage Evaluation Set",
-    "version": "2.1.0",
+    "version": "2.2.0",
     "synthetic": true,
     "source": "Synthetic complaints modeled on November 2026 observations of evening GP sessions in Kediri, East Java. Contains zero real patient data.",
     "referenceRanges": "expectedRange comes from a practising GP: routine 1-2 min, mild 2-3 min, moderate 5-20 min (up to 20 with an IV, toddlers (ageGroup toddler, 0-4 years) up to about 30), complex or procedure 10-30 min. These are consultation minutes, without patient changeover.",
@@ -14,7 +14,6 @@
       "complaint": "Minta surat keterangan sehat untuk melamar kerja, tidak ada keluhan",
       "ageGroup": "adult",
       "visitPurpose": "certificate",
-      "isNewPatient": true,
       "hasChronicCondition": false,
       "expectedRange": [
         1,
@@ -28,7 +27,6 @@
       "complaint": "Cek tensi rutin dan kontrol singkat obat darah tinggi yang sudah stabil",
       "ageGroup": "adult",
       "visitPurpose": "routine_check",
-      "isNewPatient": false,
       "hasChronicCondition": true,
       "expectedRange": [
         1,
@@ -42,7 +40,6 @@
       "complaint": "Kontrol singkat untuk membaca hasil cek kolesterol dan gula darah puasa kemarin",
       "ageGroup": "adult",
       "visitPurpose": "follow_up",
-      "isNewPatient": false,
       "hasChronicCondition": true,
       "expectedRange": [
         1,
@@ -56,7 +53,6 @@
       "complaint": "Perpanjangan surat keterangan istirahat kuliah 1 hari, demam sudah turun",
       "ageGroup": "adult",
       "visitPurpose": "certificate",
-      "isNewPatient": false,
       "hasChronicCondition": false,
       "expectedRange": [
         1,
@@ -70,7 +66,6 @@
       "complaint": "Routine blood pressure check, no headache or chest pain",
       "ageGroup": "adult",
       "visitPurpose": "routine_check",
-      "isNewPatient": false,
       "hasChronicCondition": true,
       "expectedRange": [
         1,
@@ -84,7 +79,6 @@
       "complaint": "Kontrol pasca sembuh batuk pilek minggu lalu, keluhan sudah hilang",
       "ageGroup": "adult",
       "visitPurpose": "follow_up",
-      "isNewPatient": false,
       "hasChronicCondition": false,
       "expectedRange": [
         1,
@@ -98,7 +92,6 @@
       "complaint": "Batuk pilek ringan sejak kemarin, tenggorokan agak gatal, tidak sesak",
       "ageGroup": "adult",
       "visitPurpose": "new_complaint",
-      "isNewPatient": false,
       "hasChronicCondition": false,
       "expectedRange": [
         2,
@@ -112,7 +105,6 @@
       "complaint": "Demam ringan sejak tadi malam disertai badan pegal dan pusing sedikit",
       "ageGroup": "adult",
       "visitPurpose": "new_complaint",
-      "isNewPatient": true,
       "hasChronicCondition": false,
       "expectedRange": [
         2,
@@ -126,7 +118,6 @@
       "complaint": "Sakit perut ulu hati perih dan mual ringan setelah telat makan",
       "ageGroup": "adult",
       "visitPurpose": "new_complaint",
-      "isNewPatient": false,
       "hasChronicCondition": false,
       "expectedRange": [
         2,
@@ -140,7 +131,6 @@
       "complaint": "Kulit tangan dan leher gatal bentol kemerahan sejak pagi setelah makan udang",
       "ageGroup": "adult",
       "visitPurpose": "new_complaint",
-      "isNewPatient": false,
       "hasChronicCondition": false,
       "expectedRange": [
         2,
@@ -154,7 +144,6 @@
       "complaint": "Nyeri menelan sejak 2 hari dan suara agak serak, masih bisa makan biasa",
       "ageGroup": "adult",
       "visitPurpose": "new_complaint",
-      "isNewPatient": false,
       "hasChronicCondition": false,
       "expectedRange": [
         2,
@@ -168,7 +157,6 @@
       "complaint": "Mild cold, runny nose, and low-grade fever since yesterday evening",
       "ageGroup": "adult",
       "visitPurpose": "new_complaint",
-      "isNewPatient": true,
       "hasChronicCondition": false,
       "expectedRange": [
         2,
@@ -182,7 +170,6 @@
       "complaint": "Demam tinggi sudah 4 hari naik turun disertai batuk berdahak dan napas terasa agak berat",
       "ageGroup": "adult",
       "visitPurpose": "new_complaint",
-      "isNewPatient": false,
       "hasChronicCondition": false,
       "expectedRange": [
         5,
@@ -196,7 +183,6 @@
       "complaint": "Anak demam sejak kemarin sore, muntah 4 kali dan tidak mau makan atau minum banyak",
       "ageGroup": "child",
       "visitPurpose": "new_complaint",
-      "isNewPatient": true,
       "hasChronicCondition": false,
       "expectedRange": [
         5,
@@ -210,7 +196,6 @@
       "complaint": "Diare cair lebih dari 6 kali sejak kemarin disertai mulas hebat dan badan terasa lemas",
       "ageGroup": "adult",
       "visitPurpose": "new_complaint",
-      "isNewPatient": false,
       "hasChronicCondition": false,
       "expectedRange": [
         5,
@@ -224,7 +209,6 @@
       "complaint": "Pusing berputar sejak bangun tidur disertai mual dan sulit berdiri seimbang",
       "ageGroup": "elderly",
       "visitPurpose": "new_complaint",
-      "isNewPatient": false,
       "hasChronicCondition": false,
       "expectedRange": [
         5,
@@ -238,7 +222,6 @@
       "complaint": "Nyeri dan perih setiap buang air kecil sejak 3 hari disertai demam dan pegal pinggang",
       "ageGroup": "adult",
       "visitPurpose": "new_complaint",
-      "isNewPatient": false,
       "hasChronicCondition": false,
       "expectedRange": [
         5,
@@ -252,7 +235,6 @@
       "complaint": "Batuk berdahak sudah hampir 2 minggu tidak sembuh, nafsu makan turun dan sering berkeringat malam",
       "ageGroup": "adult",
       "visitPurpose": "new_complaint",
-      "isNewPatient": false,
       "hasChronicCondition": false,
       "expectedRange": [
         5,
@@ -266,7 +248,6 @@
       "complaint": "Perawatan luka lecet dalam di lutut pasca jatuh dari motor dan perlu ganti perban",
       "ageGroup": "adult",
       "visitPurpose": "procedure",
-      "isNewPatient": false,
       "hasChronicCondition": false,
       "expectedRange": [
         10,
@@ -280,7 +261,6 @@
       "complaint": "Jari tangan teriris pisau dapur 1 jam lalu, luka masih merembes darah dan perlu dibersihkan serta dibalut",
       "ageGroup": "adult",
       "visitPurpose": "procedure",
-      "isNewPatient": true,
       "hasChronicCondition": false,
       "expectedRange": [
         10,
@@ -294,7 +274,6 @@
       "complaint": "Lansia mengeluh pusing sering kambuh, kaki kesemutan, tidur susah, dan ingin evaluasi keluhan tensi serta gula sekaligus",
       "ageGroup": "elderly",
       "visitPurpose": "follow_up",
-      "isNewPatient": false,
       "hasChronicCondition": true,
       "expectedRange": [
         10,
@@ -308,7 +287,6 @@
       "complaint": "Nyeri dada sebelah kiri sejak pagi disertai sesak napas berat, keringat dingin, dan pusing",
       "ageGroup": "adult",
       "visitPurpose": "new_complaint",
-      "isNewPatient": false,
       "hasChronicCondition": false,
       "expectedRange": [
         10,
@@ -322,7 +300,6 @@
       "complaint": "Sesak napas kumat sejak sore, napas berbunyi mengi dan sulit berbicara panjang",
       "ageGroup": "adult",
       "visitPurpose": "new_complaint",
-      "isNewPatient": true,
       "hasChronicCondition": true,
       "expectedRange": [
         10,
@@ -336,7 +313,6 @@
       "complaint": "Luka di telapak kaki tidak kunjung kering sejak 1 minggu, bengkak kemerahan, dan pasien punya riwayat gula tinggi",
       "ageGroup": "elderly",
       "visitPurpose": "procedure",
-      "isNewPatient": false,
       "hasChronicCondition": true,
       "expectedRange": [
         10,

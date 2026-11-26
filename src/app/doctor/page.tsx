@@ -51,7 +51,7 @@ export default async function DoctorPage() {
     supabase
       .from("queue_tickets")
       .select(
-        "id, ticket_number, position, status, channel, checked_in_at, called_at, started_at, estimated_call_at, actual_minutes, complaint, is_follow_up, visit_purpose, is_new_patient, has_chronic_condition, age_group, predicted_minutes, prediction_source, ai_summary, defer_count, missed_turn_at, patients (full_name, birth_date)",
+        "id, ticket_number, position, status, channel, checked_in_at, called_at, started_at, estimated_call_at, actual_minutes, complaint, is_follow_up, visit_purpose, has_chronic_condition, age_group, predicted_minutes, prediction_source, ai_summary, defer_count, missed_turn_at, patients (full_name, birth_date)",
       )
       .eq("doctor_id", staff.doctorId)
       .eq("service_date", today)
@@ -191,7 +191,6 @@ export default async function DoctorPage() {
                       </Tag>
                       {age ? <Tag>{age}</Tag> : null}
                       {shown.has_chronic_condition ? <Tag tone="warn">Penyakit kronis</Tag> : null}
-                      {shown.is_new_patient ? <Tag>Pasien baru</Tag> : null}
                       {shown.predicted_minutes ? <Tag>±{shown.predicted_minutes} mnt</Tag> : null}
                     </div>
                   </div>

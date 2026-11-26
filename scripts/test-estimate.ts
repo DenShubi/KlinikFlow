@@ -70,25 +70,23 @@ type IntegrationCase = {
 // to 2), mild 2-3, moderate 5-20, complex/procedure 10-30 minutes.
 const INTEGRATION_CASES: IntegrationCase[] = [
   {
-    name: "1. Routine: certificate + BP check, returning patient",
+    name: "1. Routine: certificate + BP check",
     input: {
       ticketId: "00000000-0000-0000-0000-000000000001",
       complaint: "Minta surat keterangan sehat dan cek tensi rutin",
       ageGroup: "adult",
       visitPurpose: "certificate",
-      isNewPatient: false,
       doctorId: "doc-internal-01",
     },
     expectedRange: [2, 3],
   },
   {
-    name: "2. Mild: cold and 1-day fever, returning patient",
+    name: "2. Mild: cold and 1-day fever",
     input: {
       ticketId: "00000000-0000-0000-0000-000000000002",
       complaint: "Batuk pilek ringan dan demam 1 hari",
       ageGroup: "adult",
       visitPurpose: "new_complaint",
-      isNewPatient: false,
       doctorId: "doc-internal-01",
     },
     expectedRange: [2, 3],
@@ -100,7 +98,6 @@ const INTEGRATION_CASES: IntegrationCase[] = [
       complaint: "Perawatan luka pasca kecelakaan di kaki, ganti perban, dan mengeluh sesak napas",
       ageGroup: "adult",
       visitPurpose: "procedure",
-      isNewPatient: false,
       doctorId: "doc-internal-02",
     },
     expectedRange: [10, 30],
@@ -148,7 +145,6 @@ function runUnitChecks(core: CoreModule): { failed: number; total: number } {
     ageGroup: "adult",
     patientAgeYears: 29, // exact age must not be sent when the group is known
     visitPurpose: "follow_up",
-    isNewPatient: false,
     hasChronicCondition: true,
     doctorId: "secret-doctor-777",
     // Fields the estimator must drop even if a caller passes them by mistake.
@@ -168,11 +164,10 @@ function runUnitChecks(core: CoreModule): { failed: number; total: number } {
   ) as Record<string, unknown>;
   const legacy = JSON.parse(core.buildSanitizedPromptPayload({ ticketId: "", complaint: "Kontrol", isFollowUp: true })) as Record<string, unknown>;
   checks.push({
-    name: "Unit B. visitPurpose, isNewPatient, hasChronicCondition forwarded; isFollowUp derived",
+    name: "Unit B. visitPurpose, hasChronicCondition forwarded; isFollowUp derived",
     pass:
       parsed.visitPurpose === "follow_up" &&
       parsed.isFollowUp === true &&
-      parsed.isNewPatient === false &&
       parsed.hasChronicCondition === true &&
       certificate.isFollowUp === false &&
       legacy.isFollowUp === true &&

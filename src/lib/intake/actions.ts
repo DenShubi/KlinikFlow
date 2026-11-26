@@ -35,7 +35,6 @@ export async function registerRemote(_prev: IntakeState, formData: FormData): Pr
     // Visit details (kept so the form can show them again after an error).
     ageGroup: String(formData.get("ageGroup") ?? ""),
     visitPurpose: String(formData.get("visitPurpose") ?? ""),
-    seenBefore: String(formData.get("seenBefore") ?? ""),
     chronic: String(formData.get("chronic") ?? ""),
   };
   const fail = (error: string): IntakeState => ({ error, values });
@@ -125,7 +124,6 @@ export async function registerRemote(_prev: IntakeState, formData: FormData): Pr
     complaint: values.complaint,
     ageGroup: visit.value.ageGroup,
     visitPurpose: visit.value.visitPurpose,
-    isNewPatient: visit.value.isNewPatient,
     hasChronicCondition: visit.value.hasChronicCondition,
     doctorId: doctor.id,
   });
@@ -137,7 +135,6 @@ export async function registerRemote(_prev: IntakeState, formData: FormData): Pr
     p_complaint: values.complaint,
     p_is_follow_up: visit.value.visitPurpose === "follow_up",
     p_visit_purpose: visit.value.visitPurpose,
-    p_is_new_patient: visit.value.isNewPatient,
     p_has_chronic_condition: visit.value.hasChronicCondition,
     p_age_group: visit.value.ageGroup,
     p_predicted_minutes: estimate.minutes,

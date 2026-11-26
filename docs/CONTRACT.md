@@ -25,7 +25,6 @@ type EstimateInput = {
   ageGroup?: AgeGroup;           // from the intake form
   patientAgeYears?: number;      // legacy; only its age group is sent, and only without ageGroup
   visitPurpose?: VisitPurpose;   // why the patient comes (intake form)
-  isNewPatient?: boolean;        // first visit to this doctor
   hasChronicCondition?: boolean; // yes/no only, never the condition itself
   isFollowUp?: boolean;          // legacy; derived as visitPurpose === "follow_up" when visitPurpose is set
   doctorId?: string;             // lets calibration learn per doctor (never sent to Gemini)
@@ -49,8 +48,8 @@ Rules:
   to 2..30.
 - Never throws. On any error or timeout (`GEMINI_TIMEOUT_MS`, default 4 s) it
   returns `{ minutes: QUEUE_FALLBACK_CONSULT_MINUTES (default 5), source: "fallback" }`.
-- Only `complaint`, `ageGroup`, `visitPurpose`, `isNewPatient`,
-  `hasChronicCondition` and `isFollowUp` are sent to Gemini; `ticketId`,
+- Only `complaint`, `ageGroup`, `visitPurpose`, `hasChronicCondition` and
+  `isFollowUp` are sent to Gemini; `ticketId`,
   `doctorId`, the name, phone number, birth date and any exact age stay on the server.
   Gender is not collected.
 - `estimateForQueue` adds `QUEUE_CHANGEOVER_MINUTES` (default 1) for the next
@@ -69,7 +68,7 @@ Both sides use table `public.queue_tickets` (one row per visit), created in
 | `id` | `uuid` | `ticketId` |
 | `complaint` | `text` | `complaint` |
 | `visit_purpose` | enum `visit_purpose` | `visitPurpose` |
-| `is_new_patient` | `boolean` | `isNewPatient` |
+| `is_new_patient` | `boolean` | not used: the question was dropped from the forms (26 Nov); the column stays empty |
 | `has_chronic_condition` | `boolean` | `hasChronicCondition` |
 | `age_group` | enum `age_group` | `ageGroup` (asked on the form; older rows: `patients.birth_date`) |
 | `is_follow_up` | `boolean` | `isFollowUp` (= `visit_purpose = 'follow_up'`) |
@@ -109,7 +108,8 @@ The names Farhan needs are in [`.env.example`](../.env.example), under
 
 - [ ] Is `minutes` enough, or does the queue also need a range (min/max)?
 - [x] Which intake fields does the AI need beyond `complaint`? Age group, visit
-  purpose, new patient, chronic condition (26 Nov; migration `visit_details`).
+  purpose, chronic condition (26 Nov; migration `visit_details`). "Seen this
+  doctor before" was asked at first and then dropped to keep the form short.
 - [ ] Do the doctor's ranges include patient changeover? Not confirmed; the
   queue adds `QUEUE_CHANGEOVER_MINUTES` on top until it is.
 - [x] Timeout value for the AI call: 4 s (in `estimate-core.ts`).

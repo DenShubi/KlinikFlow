@@ -43,12 +43,11 @@ export const CHRONIC_OPTIONS = [
 export type VisitDetails = {
   ageGroup: AgeGroup;
   visitPurpose: VisitPurpose;
-  isNewPatient: boolean;
   hasChronicCondition?: boolean; // undefined when not answered
 };
 
 // Reads and validates the visit fields of either form. Field names:
-// ageGroup, visitPurpose, seenBefore ("ya" | "belum"), chronic (optional).
+// ageGroup, visitPurpose, chronic (optional).
 export function parseVisitDetails(formData: FormData): { ok: true; value: VisitDetails } | { ok: false; error: string } {
   const group = AGE_GROUP_OPTIONS.find((o) => o.value === String(formData.get("ageGroup") ?? ""));
   if (!group) return { ok: false, error: "Pilih kelompok usia pasien." };
@@ -57,17 +56,12 @@ export function parseVisitDetails(formData: FormData): { ok: true; value: VisitD
   const option = VISIT_PURPOSE_OPTIONS.find((o) => o.value === purpose);
   if (!option) return { ok: false, error: "Pilih tujuan kunjungan." };
 
-  const seenBefore = String(formData.get("seenBefore") ?? "");
-  if (seenBefore !== "ya" && seenBefore !== "belum") {
-    return { ok: false, error: "Jawab apakah pasien pernah berobat ke dokter ini." };
-  }
-
   const chronic = String(formData.get("chronic") ?? "");
   const hasChronicCondition =
     chronic === "" ? undefined : chronic === "tidak" ? false : CHRONIC_OPTIONS.some((o) => o.value === chronic) ? true : undefined;
 
   return {
     ok: true,
-    value: { ageGroup: group.value, visitPurpose: option.value, isNewPatient: seenBefore === "belum", hasChronicCondition },
+    value: { ageGroup: group.value, visitPurpose: option.value, hasChronicCondition },
   };
 }

@@ -31,7 +31,6 @@ export type EstimateInput = {
   patientAgeYears?: number; // legacy; only its age group is sent, and only when ageGroup is missing
   isFollowUp?: boolean; // legacy flag; derived from visitPurpose when that is given
   visitPurpose?: VisitPurpose;
-  isNewPatient?: boolean; // first visit to this doctor
   hasChronicCondition?: boolean; // e.g. hypertension, diabetes (only the yes/no goes to the model)
   doctorId?: string; // reserved for future calibration; NEVER send to Gemini
 };
@@ -84,7 +83,6 @@ type PromptPayload = {
   ageGroup?: AgeGroup;
   isFollowUp?: boolean;
   visitPurpose?: VisitPurpose;
-  isNewPatient?: boolean;
   hasChronicCondition?: boolean;
 };
 
@@ -93,35 +91,35 @@ type PromptPayload = {
 // (scripts/eval-estimate.ts checks the word overlap on every run).
 export const FEW_SHOT_EXAMPLES: Array<{ input: PromptPayload; output: { minutes: number; confidence: number; summary: string } }> = [
   {
-    input: { complaint: "Kontrol rutin asam urat, obat masih diminum, tidak ada keluhan", ageGroup: "elderly", visitPurpose: "routine_check", isFollowUp: false, isNewPatient: false, hasChronicCondition: true },
+    input: { complaint: "Kontrol rutin asam urat, obat masih diminum, tidak ada keluhan", ageGroup: "elderly", visitPurpose: "routine_check", isFollowUp: false, hasChronicCondition: true },
     output: { minutes: 2, confidence: 0.9, summary: "Kontrol rutin asam urat dengan pengobatan berjalan dan tanpa keluhan baru." },
   },
   {
-    input: { complaint: "Minta surat rujukan ke poli mata untuk periksa kacamata", ageGroup: "adult", visitPurpose: "certificate", isFollowUp: false, isNewPatient: false },
+    input: { complaint: "Minta surat rujukan ke poli mata untuk periksa kacamata", ageGroup: "adult", visitPurpose: "certificate", isFollowUp: false },
     output: { minutes: 2, confidence: 0.88, summary: "Pasien meminta surat rujukan ke poli mata untuk pemeriksaan kacamata." },
   },
   {
-    input: { complaint: "Sariawan di bibir bawah sejak 3 hari, perih saat makan", ageGroup: "adult", visitPurpose: "new_complaint", isFollowUp: false, isNewPatient: false },
+    input: { complaint: "Sariawan di bibir bawah sejak 3 hari, perih saat makan", ageGroup: "adult", visitPurpose: "new_complaint", isFollowUp: false },
     output: { minutes: 3, confidence: 0.85, summary: "Pasien mengeluhkan sariawan di bibir bawah sejak 3 hari yang terasa perih saat makan." },
   },
   {
-    input: { complaint: "Kepala pusing, pegal di bahu, dan susah tidur sejak seminggu", ageGroup: "adult", visitPurpose: "new_complaint", isFollowUp: false, isNewPatient: true },
-    output: { minutes: 7, confidence: 0.75, summary: "Pasien baru dengan tiga keluhan: pusing, pegal di bahu, dan sulit tidur sejak seminggu." },
+    input: { complaint: "Kepala pusing, pegal di bahu, dan susah tidur sejak seminggu", ageGroup: "adult", visitPurpose: "new_complaint", isFollowUp: false },
+    output: { minutes: 7, confidence: 0.75, summary: "Pasien dengan tiga keluhan: pusing, pegal di bahu, dan sulit tidur sejak seminggu." },
   },
   {
-    input: { complaint: "Muntah terus sejak subuh, tidak bisa minum, badan sangat lemas", ageGroup: "adult", visitPurpose: "new_complaint", isFollowUp: false, isNewPatient: false },
+    input: { complaint: "Muntah terus sejak subuh, tidak bisa minum, badan sangat lemas", ageGroup: "adult", visitPurpose: "new_complaint", isFollowUp: false },
     output: { minutes: 18, confidence: 0.75, summary: "Pasien muntah berulang sejak subuh, tidak bisa minum, dan merasa sangat lemas." },
   },
   {
-    input: { complaint: "Telinga kiri sakit dan keluar cairan sejak kemarin, rewel terus", ageGroup: "toddler", visitPurpose: "new_complaint", isFollowUp: false, isNewPatient: true },
+    input: { complaint: "Telinga kiri sakit dan keluar cairan sejak kemarin, rewel terus", ageGroup: "toddler", visitPurpose: "new_complaint", isFollowUp: false },
     output: { minutes: 20, confidence: 0.72, summary: "Balita dengan nyeri telinga kiri dan keluar cairan sejak kemarin, rewel." },
   },
   {
-    input: { complaint: "Cabut jahitan bekas operasi usus buntu", ageGroup: "adult", visitPurpose: "procedure", isFollowUp: false, isNewPatient: false },
+    input: { complaint: "Cabut jahitan bekas operasi usus buntu", ageGroup: "adult", visitPurpose: "procedure", isFollowUp: false },
     output: { minutes: 12, confidence: 0.82, summary: "Tindakan pelepasan jahitan bekas operasi usus buntu." },
   },
   {
-    input: { complaint: "Kaki bengkak dan sesak saat berbaring, punya sakit jantung dan ginjal", ageGroup: "elderly", visitPurpose: "new_complaint", isFollowUp: false, isNewPatient: false, hasChronicCondition: true },
+    input: { complaint: "Kaki bengkak dan sesak saat berbaring, punya sakit jantung dan ginjal", ageGroup: "elderly", visitPurpose: "new_complaint", isFollowUp: false, hasChronicCondition: true },
     output: { minutes: 25, confidence: 0.78, summary: "Pasien lansia dengan kaki bengkak dan sesak saat berbaring, memiliki penyakit jantung dan ginjal." },
   },
 ];
@@ -145,7 +143,6 @@ const SYSTEM_INSTRUCTION = [
   "ADJUSTMENTS:",
   "- Count the distinct problems. Symptoms of one illness (for example cough, runny nose and fever of a cold) are ONE problem. Each extra separate problem adds about 2 minutes.",
   "- Lengthen the estimate for ageGroup toddler and elderly, hasChronicCondition true, and procedures (visitPurpose procedure).",
-  "- A new patient (isNewPatient true) needs about 1 minute more than a returning patient, but stay inside the tier.",
   "- visitPurpose routine_check or certificate is usually routine; follow_up is usually routine or mild unless the complaint describes a procedure or a worsening problem.",
   "- When unsure between two values, choose the LOWER one. Overestimating makes patients waiting at home arrive late and miss their turn.",
   "",
@@ -260,10 +257,6 @@ export function buildSanitizedPromptPayload(input: EstimateInput): string {
     payload.isFollowUp = input.visitPurpose === "follow_up";
   } else if (typeof input.isFollowUp === "boolean") {
     payload.isFollowUp = input.isFollowUp;
-  }
-
-  if (typeof input.isNewPatient === "boolean") {
-    payload.isNewPatient = input.isNewPatient;
   }
 
   if (typeof input.hasChronicCondition === "boolean") {

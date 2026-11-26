@@ -49,7 +49,6 @@ export async function createTicket(_prev: ActionResult, formData: FormData): Pro
     complaint,
     ageGroup: visit.value.ageGroup,
     visitPurpose: visit.value.visitPurpose,
-    isNewPatient: visit.value.isNewPatient,
     hasChronicCondition: visit.value.hasChronicCondition,
     doctorId,
   });
@@ -61,7 +60,6 @@ export async function createTicket(_prev: ActionResult, formData: FormData): Pro
     p_complaint: complaint,
     p_is_follow_up: visit.value.visitPurpose === "follow_up",
     p_visit_purpose: visit.value.visitPurpose,
-    p_is_new_patient: visit.value.isNewPatient,
     p_has_chronic_condition: visit.value.hasChronicCondition,
     p_age_group: visit.value.ageGroup,
     p_predicted_minutes: estimate.minutes,

@@ -1,21 +1,17 @@
 import { AGE_GROUP_OPTIONS, CHRONIC_OPTIONS, VISIT_PURPOSE_OPTIONS } from "@/lib/queue/visit";
 
 // Visit details shared by the patient intake and the receptionist form:
-// age group, seen this doctor before, visit purpose, chronic condition
-// (optional). Field names match parseVisitDetails() in src/lib/queue/visit.ts.
+// age group, visit purpose, chronic condition (optional). Field names match parseVisitDetails() in src/lib/queue/visit.ts.
 
 export type VisitFieldValues = {
   ageGroup?: string;
   visitPurpose?: string;
-  seenBefore?: string;
   chronic?: string;
 };
 
 const LEGEND = "mb-2 text-sm font-semibold text-ink";
 const OPTION =
   "flex cursor-pointer items-center gap-3 rounded-[10px] bg-surface px-3.5 shadow-[inset_0_0_0_1px_var(--color-line)] transition-[box-shadow,background-color] duration-[var(--dur-1)] hover:shadow-[inset_0_0_0_1px_#c9ccec] has-[:checked]:bg-tint has-[:checked]:shadow-[inset_0_0_0_2px_var(--color-accent)] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent";
-const SEGMENT =
-  "flex min-h-[44px] flex-1 cursor-pointer items-center justify-center rounded-[8px] text-sm font-semibold text-muted transition-colors has-[:checked]:bg-surface has-[:checked]:text-ink has-[:checked]:shadow-[0_1px_2px_rgb(18_32_86/0.1)] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-accent";
 
 export function VisitFields({ values = {}, dense = false }: { values?: VisitFieldValues; dense?: boolean }) {
   return (
@@ -42,20 +38,6 @@ export function VisitFields({ values = {}, dense = false }: { values?: VisitFiel
               <span className="whitespace-nowrap text-xs leading-tight text-muted tabular-nums">{o.hint}</span>
             </label>
           ))}
-        </div>
-      </fieldset>
-
-      <fieldset className="flex min-w-0 flex-col">
-        <legend className={LEGEND}>Pernah berobat ke dokter ini sebelumnya?</legend>
-        <div className="flex gap-1 rounded-[10px] bg-tint p-1">
-          <label className={SEGMENT}>
-            <input type="radio" name="seenBefore" value="ya" required defaultChecked={values.seenBefore === "ya"} className="sr-only" />
-            Ya, pernah
-          </label>
-          <label className={SEGMENT}>
-            <input type="radio" name="seenBefore" value="belum" defaultChecked={values.seenBefore === "belum"} className="sr-only" />
-            Belum pernah
-          </label>
         </div>
       </fieldset>
 
