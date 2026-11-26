@@ -1,8 +1,19 @@
-import type { VisitPurpose } from "@/lib/ai/estimate-core";
+import type { AgeGroup, VisitPurpose } from "@/lib/ai/estimate-core";
 
 // Visit details asked on both intake forms (patient and receptionist). They
 // are coarse and non-identifying: they go to the AI estimator and onto the
-// ticket. Gender is deliberately not asked (data minimisation).
+// ticket. Age is asked as a group, not a number or birth date, and gender is
+// deliberately not asked (data minimisation).
+
+export const AGE_GROUP_OPTIONS: Array<{ value: AgeGroup; label: string; hint: string }> = [
+  { value: "toddler", label: "Balita", hint: "0–4" },
+  { value: "child", label: "Anak", hint: "5–12" },
+  { value: "teen", label: "Remaja", hint: "13–17" },
+  { value: "adult", label: "Dewasa", hint: "18–59" },
+  { value: "elderly", label: "Lansia", hint: "60+" },
+];
+
+export const AGE_GROUP_LABEL = Object.fromEntries(AGE_GROUP_OPTIONS.map((o) => [o.value, o.label])) as Record<AgeGroup, string>;
 
 export const VISIT_PURPOSE_OPTIONS: Array<{ value: VisitPurpose; label: string; hint?: string }> = [
   { value: "new_complaint", label: "Periksa keluhan baru" },
@@ -29,25 +40,18 @@ export const CHRONIC_OPTIONS = [
   { value: "tidak", label: "Tidak" },
 ] as const;
 
-export const MIN_AGE = 0;
-export const MAX_AGE = 120;
-
 export type VisitDetails = {
-  ageYears: number;
+  ageGroup: AgeGroup;
   visitPurpose: VisitPurpose;
   isNewPatient: boolean;
   hasChronicCondition?: boolean; // undefined when not answered
 };
 
 // Reads and validates the visit fields of either form. Field names:
-// ageYears, visitPurpose, seenBefore ("ya" | "belum"), chronic (optional).
+// ageGroup, visitPurpose, seenBefore ("ya" | "belum"), chronic (optional).
 export function parseVisitDetails(formData: FormData): { ok: true; value: VisitDetails } | { ok: false; error: string } {
-  const ageRaw = String(formData.get("ageYears") ?? "").trim();
-  const age = /^\d{1,3}$/.test(ageRaw) ? Number(ageRaw) : Number.NaN;
-  if (!ageRaw) return { ok: false, error: "Isi usia pasien (tahun)." };
-  if (!Number.isInteger(age) || age < MIN_AGE || age > MAX_AGE) {
-    return { ok: false, error: `Usia harus angka ${MIN_AGE}–${MAX_AGE} tahun.` };
-  }
+  const group = AGE_GROUP_OPTIONS.find((o) => o.value === String(formData.get("ageGroup") ?? ""));
+  if (!group) return { ok: false, error: "Pilih kelompok usia pasien." };
 
   const purpose = String(formData.get("visitPurpose") ?? "");
   const option = VISIT_PURPOSE_OPTIONS.find((o) => o.value === purpose);
@@ -64,6 +68,6 @@ export function parseVisitDetails(formData: FormData): { ok: true; value: VisitD
 
   return {
     ok: true,
-    value: { ageYears: age, visitPurpose: option.value, isNewPatient: seenBefore === "belum", hasChronicCondition },
+    value: { ageGroup: group.value, visitPurpose: option.value, isNewPatient: seenBefore === "belum", hasChronicCondition },
   };
 }

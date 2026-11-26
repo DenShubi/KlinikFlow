@@ -7,9 +7,11 @@
 --                          routine check, certificate, procedure)
 --   is_new_patient         first visit to this doctor
 --   has_chronic_condition  yes/no only; the specific condition is not stored
---   patient_age_years      age in whole years at this visit, instead of a full
---                          birth date (data minimisation). patients.birth_date
---                          stays for older rows and the demo data.
+--   age_group              age group at this visit (balita 0-4, anak 5-12,
+--                          remaja 13-17, dewasa 18-59, lansia 60+), instead of
+--                          an exact age or birth date (data minimisation).
+--                          patients.birth_date stays for older rows and the
+--                          demo data.
 --
 -- They are passed to the AI estimator and stored on the ticket. Receptionists
 -- and doctors read them through the existing row-level security on
@@ -18,17 +20,18 @@
 -- Gender is deliberately not collected.
 
 create type public.visit_purpose as enum ('new_complaint', 'follow_up', 'routine_check', 'certificate', 'procedure');
+create type public.age_group as enum ('toddler', 'child', 'teen', 'adult', 'elderly');
 
 alter table public.queue_tickets
   add column visit_purpose public.visit_purpose,
   add column is_new_patient boolean,
   add column has_chronic_condition boolean,
-  add column patient_age_years smallint check (patient_age_years between 0 and 120);
+  add column age_group public.age_group;
 
 comment on column public.queue_tickets.visit_purpose is 'Why the patient comes, chosen on the intake form.';
 comment on column public.queue_tickets.is_new_patient is 'First visit to this doctor (from the intake form).';
 comment on column public.queue_tickets.has_chronic_condition is 'Patient reports a chronic condition (yes/no only).';
-comment on column public.queue_tickets.patient_age_years is 'Age in whole years at this visit (from the intake form).';
+comment on column public.queue_tickets.age_group is 'Age group at this visit (from the intake form): toddler 0-4, child 5-12, teen 13-17, adult 18-59, elderly 60+.';
 
 -- queue_create_ticket gains four optional parameters. The argument list
 -- changes, so the old function is dropped first (otherwise both would exist).
@@ -51,7 +54,7 @@ create function public.queue_create_ticket(
   p_visit_purpose public.visit_purpose default null,
   p_is_new_patient boolean default null,
   p_has_chronic_condition boolean default null,
-  p_patient_age_years integer default null
+  p_age_group public.age_group default null
 )
 returns public.queue_tickets
 language plpgsql
@@ -91,14 +94,14 @@ begin
     complaint, is_follow_up,
     predicted_minutes, prediction_source, prediction_confidence, prediction_model, ai_summary,
     checked_in_at, created_by,
-    visit_purpose, is_new_patient, has_chronic_condition, patient_age_years
+    visit_purpose, is_new_patient, has_chronic_condition, age_group
   ) values (
     p_doctor_id, p_patient_id, p_service_date, v_number, v_position, p_channel, 'waiting',
     trim(p_complaint), coalesce(p_is_follow_up, false),
     p_predicted_minutes, p_prediction_source, p_prediction_confidence, p_prediction_model, p_ai_summary,
     null, -- every patient is marked as arrived by the receptionist (queue_check_in)
     (select auth.uid()),
-    p_visit_purpose, p_is_new_patient, p_has_chronic_condition, p_patient_age_years
+    p_visit_purpose, p_is_new_patient, p_has_chronic_condition, p_age_group
   )
   returning * into v_ticket;
 
@@ -121,11 +124,11 @@ $$;
 
 revoke all on function public.queue_create_ticket(
   uuid, uuid, public.ticket_channel, text, boolean, integer, public.prediction_source, numeric, text, text, date,
-  public.visit_purpose, boolean, boolean, integer
+  public.visit_purpose, boolean, boolean, public.age_group
 ) from public, anon;
 grant execute on function public.queue_create_ticket(
   uuid, uuid, public.ticket_channel, text, boolean, integer, public.prediction_source, numeric, text, text, date,
-  public.visit_purpose, boolean, boolean, integer
+  public.visit_purpose, boolean, boolean, public.age_group
 ) to authenticated, service_role;
 
 -- Slot length used when a ticket has no prediction: the estimator's new

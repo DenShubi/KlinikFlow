@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-11-26T12:00:22.193Z",
+  "generatedAt": "2026-11-26T12:25:16.015Z",
   "dataset": {
     "name": "KlinikFlow Synthetic Triage Evaluation Set",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "synthetic": true,
     "source": "Synthetic complaints modeled on November 2026 observations of evening GP sessions in Kediri, East Java. Contains zero real patient data.",
-    "referenceRanges": "expectedRange comes from a practising GP: routine 1-2 min, mild 2-3 min, moderate 5-20 min (up to 20 with an IV, toddlers under 5 up to about 30), complex or procedure 10-30 min. These are consultation minutes, without patient changeover.",
+    "referenceRanges": "expectedRange comes from a practising GP: routine 1-2 min, mild 2-3 min, moderate 5-20 min (up to 20 with an IV, toddlers (ageGroup toddler, 0-4 years) up to about 30), complex or procedure 10-30 min. These are consultation minutes, without patient changeover.",
     "flatBaselineMinutes": 5
   },
   "config": {
@@ -146,19 +146,19 @@
   "summary": {
     "ai": {
       "n": 24,
-      "inRangePct": 91.67,
-      "inRangeCount": 22,
-      "maeMidpoint": 1.58,
+      "inRangePct": 87.5,
+      "inRangeCount": 21,
+      "maeMidpoint": 1.96,
       "under": 0,
-      "over": 2
+      "over": 3
     },
     "aiOnly": {
       "n": 24,
-      "inRangePct": 91.67,
-      "inRangeCount": 22,
-      "maeMidpoint": 1.58,
+      "inRangePct": 87.5,
+      "inRangeCount": 21,
+      "maeMidpoint": 1.96,
       "under": 0,
-      "over": 2
+      "over": 3
     },
     "flatBaseline": {
       "n": 24,
@@ -187,23 +187,23 @@
     },
     "otherCases": {
       "n": 17,
-      "inRangePct": 88.24,
-      "inRangeCount": 15,
-      "maeMidpoint": 1.38,
+      "inRangePct": 82.35,
+      "inRangeCount": 14,
+      "maeMidpoint": 1.91,
       "under": 0,
-      "over": 2
+      "over": 3
     },
     "aiSuccessCount": 24,
     "fallbackCount": 0,
     "latencyAllMs": {
-      "mean": 3155.92,
-      "p50": 1661,
-      "p95": 6471
+      "mean": 3780.92,
+      "p50": 4321,
+      "p95": 5567
     },
     "latencyAiOnlyMs": {
-      "mean": 3155.92,
-      "p50": 1661,
-      "p95": 6471
+      "mean": 3780.92,
+      "p50": 4321,
+      "p95": 5567
     },
     "safetyFlagCount": 0
   },
@@ -218,18 +218,18 @@
       "predictions": [
         2,
         2,
-        2,
+        3,
         2,
         2,
         2
       ],
       "ai": {
         "n": 6,
-        "inRangePct": 100,
-        "inRangeCount": 6,
-        "maeMidpoint": 0.5,
+        "inRangePct": 83.33,
+        "inRangeCount": 5,
+        "maeMidpoint": 0.67,
         "under": 0,
-        "over": 0
+        "over": 1
       },
       "flatBaseline": {
         "n": 6,
@@ -280,18 +280,18 @@
       ],
       "count": 6,
       "predictions": [
-        12,
-        15,
-        15,
         10,
+        15,
+        15,
+        15,
         7,
-        12
+        10
       ],
       "ai": {
         "n": 6,
         "inRangePct": 100,
         "inRangeCount": 6,
-        "maeMidpoint": 2.33,
+        "maeMidpoint": 3,
         "under": 0,
         "over": 0
       },
@@ -312,10 +312,10 @@
       ],
       "count": 6,
       "predictions": [
+        12,
         15,
-        15,
+        14,
         20,
-        25,
         20,
         20
       ],
@@ -323,7 +323,7 @@
         "n": 6,
         "inRangePct": 100,
         "inRangeCount": 6,
-        "maeMidpoint": 2.5,
+        "maeMidpoint": 3.17,
         "under": 0,
         "over": 0
       },
@@ -355,8 +355,8 @@
       "source": "ai",
       "confidence": 0.95,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien baru meminta surat keterangan sehat untuk melamar pekerjaan tanpa keluhan kesehatan.",
-      "latencyMs": 1202,
+      "summary": "Pasien baru meminta pembuatan surat keterangan sehat untuk melamar pekerjaan tanpa keluhan.",
+      "latencyMs": 3363,
       "safetyFlag": null,
       "maxAnchorOverlap": 0.17
     },
@@ -375,10 +375,10 @@
       "flatInRange": false,
       "flatAbsErrorMidpoint": 3.5,
       "source": "ai",
-      "confidence": 0.9,
+      "confidence": 0.95,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pemeriksaan tekanan darah rutin dan kontrol pengobatan darah tinggi yang sudah stabil.",
-      "latencyMs": 5784,
+      "summary": "Pasien melakukan pemeriksaan tekanan darah rutin dan kontrol obat darah tinggi yang sudah stabil.",
+      "latencyMs": 3042,
       "safetyFlag": null,
       "maxAnchorOverlap": 0.23
     },
@@ -390,17 +390,17 @@
         2
       ],
       "midpoint": 1.5,
-      "predictedMinutes": 2,
-      "inRange": true,
-      "direction": "in",
-      "absErrorMidpoint": 0.5,
+      "predictedMinutes": 3,
+      "inRange": false,
+      "direction": "over",
+      "absErrorMidpoint": 1.5,
       "flatInRange": false,
       "flatAbsErrorMidpoint": 3.5,
       "source": "ai",
       "confidence": 0.9,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien datang untuk kontrol membaca hasil pemeriksaan laboratorium kolesterol dan gula darah puasa.",
-      "latencyMs": 5319,
+      "summary": "Kontrol untuk membaca hasil pemeriksaan laboratorium kolesterol dan gula darah puasa.",
+      "latencyMs": 2375,
       "safetyFlag": null,
       "maxAnchorOverlap": 0.06
     },
@@ -421,8 +421,8 @@
       "source": "ai",
       "confidence": 0.9,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien meminta perpanjangan surat keterangan istirahat kuliah selama satu hari setelah demamnya turun.",
-      "latencyMs": 5022,
+      "summary": "Pasien meminta perpanjangan surat keterangan istirahat kuliah satu hari karena demam sudah turun.",
+      "latencyMs": 3174,
       "safetyFlag": null,
       "maxAnchorOverlap": 0.08
     },
@@ -443,8 +443,8 @@
       "source": "ai",
       "confidence": 0.95,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Routine blood pressure check with no reported headache or chest pain.",
-      "latencyMs": 6529,
+      "summary": "Pasien melakukan pemeriksaan rutin tekanan darah tanpa keluhan sakit kepala atau nyeri dada.",
+      "latencyMs": 5554,
       "safetyFlag": null,
       "maxAnchorOverlap": 0
     },
@@ -463,10 +463,10 @@
       "flatInRange": false,
       "flatAbsErrorMidpoint": 3.5,
       "source": "ai",
-      "confidence": 0.95,
+      "confidence": 0.9,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien datang untuk kontrol lanjutan pasca batuk dan pilek minggu lalu dengan keluhan yang sudah hilang.",
-      "latencyMs": 4459,
+      "summary": "Kunjungan tindak lanjut pasca sembuh dari batuk dan pilek dengan keluhan yang sudah hilang.",
+      "latencyMs": 4546,
       "safetyFlag": null,
       "maxAnchorOverlap": 0.14
     },
@@ -488,7 +488,7 @@
       "confidence": 0.9,
       "model": "gemini-3.5-flash-lite",
       "summary": "Pasien mengeluhkan batuk pilek ringan sejak kemarin dengan tenggorokan gatal dan tanpa sesak.",
-      "latencyMs": 5150,
+      "latencyMs": 2118,
       "safetyFlag": null,
       "maxAnchorOverlap": 0.07
     },
@@ -510,7 +510,7 @@
       "confidence": 0.85,
       "model": "gemini-3.5-flash-lite",
       "summary": "Pasien baru mengeluhkan demam ringan sejak tadi malam disertai badan pegal dan pusing sedikit.",
-      "latencyMs": 4190,
+      "latencyMs": 5159,
       "safetyFlag": null,
       "maxAnchorOverlap": 0.17
     },
@@ -529,10 +529,10 @@
       "flatInRange": false,
       "flatAbsErrorMidpoint": 2.5,
       "source": "ai",
-      "confidence": 0.88,
+      "confidence": 0.9,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien mengeluhkan nyeri ulu hati yang perih disertai mual ringan setelah terlambat makan.",
-      "latencyMs": 6471,
+      "summary": "Pasien mengeluhkan nyeri ulu hati dan mual ringan yang timbul setelah telat makan.",
+      "latencyMs": 1225,
       "safetyFlag": null,
       "maxAnchorOverlap": 0.15
     },
@@ -553,8 +553,8 @@
       "source": "ai",
       "confidence": 0.88,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien mengeluhkan kulit tangan dan leher gatal serta bentol kemerahan sejak pagi setelah makan udang.",
-      "latencyMs": 1661,
+      "summary": "Pasien mengeluhkan gatal, bentol, dan kemerahan pada kulit tangan dan leher sejak pagi setelah mengonsumsi udang.",
+      "latencyMs": 5548,
       "safetyFlag": null,
       "maxAnchorOverlap": 0.07
     },
@@ -575,8 +575,8 @@
       "source": "ai",
       "confidence": 0.88,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien mengeluhkan nyeri menelan sejak 2 hari dan suara agak serak, masih dapat makan seperti biasa.",
-      "latencyMs": 3555,
+      "summary": "Pasien mengeluhkan nyeri menelan sejak 2 hari dan suara agak serak, masih dapat makan biasa.",
+      "latencyMs": 5567,
       "safetyFlag": null,
       "maxAnchorOverlap": 0.18
     },
@@ -595,10 +595,10 @@
       "flatInRange": false,
       "flatAbsErrorMidpoint": 2.5,
       "source": "ai",
-      "confidence": 0.85,
+      "confidence": 0.88,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien baru mengeluhkan pilek ringan, hidung berair, dan demam ringan sejak kemarin sore.",
-      "latencyMs": 1522,
+      "summary": "Pasien baru mengeluhkan pilek ringan dan demam ringan sejak kemarin malam.",
+      "latencyMs": 1212,
       "safetyFlag": null,
       "maxAnchorOverlap": 0
     },
@@ -610,17 +610,17 @@
         20
       ],
       "midpoint": 12.5,
-      "predictedMinutes": 12,
+      "predictedMinutes": 10,
       "inRange": true,
       "direction": "in",
-      "absErrorMidpoint": 0.5,
+      "absErrorMidpoint": 2.5,
       "flatInRange": true,
       "flatAbsErrorMidpoint": 7.5,
       "source": "ai",
       "confidence": 0.85,
       "model": "gemini-3.5-flash-lite",
       "summary": "Pasien mengeluhkan demam tinggi naik turun selama 4 hari disertai batuk berdahak dan napas terasa agak berat.",
-      "latencyMs": 910,
+      "latencyMs": 4704,
       "safetyFlag": null,
       "maxAnchorOverlap": 0.07
     },
@@ -641,8 +641,8 @@
       "source": "ai",
       "confidence": 0.8,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Anak usia 5 tahun dengan keluhan demam sejak kemarin sore, muntah empat kali, serta tidak mau makan atau minum banyak.",
-      "latencyMs": 4738,
+      "summary": "Anak mengalami demam sejak kemarin sore, muntah 4 kali, serta enggan makan atau minum banyak.",
+      "latencyMs": 907,
       "safetyFlag": null,
       "maxAnchorOverlap": 0.13
     },
@@ -661,10 +661,10 @@
       "flatInRange": true,
       "flatAbsErrorMidpoint": 7.5,
       "source": "ai",
-      "confidence": 0.85,
+      "confidence": 0.82,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien mengeluhkan diare cair lebih dari 6 kali sejak kemarin disertai mulas hebat dan badan terasa lemas.",
-      "latencyMs": 976,
+      "summary": "Pasien mengeluhkan diare cair lebih dari 6 kali sejak kemarin yang disertai mulas hebat dan badan lemas.",
+      "latencyMs": 5529,
       "safetyFlag": null,
       "maxAnchorOverlap": 0.13
     },
@@ -676,7 +676,7 @@
         20
       ],
       "midpoint": 12.5,
-      "predictedMinutes": 10,
+      "predictedMinutes": 15,
       "inRange": true,
       "direction": "in",
       "absErrorMidpoint": 2.5,
@@ -685,8 +685,8 @@
       "source": "ai",
       "confidence": 0.8,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien mengeluhkan pusing berputar sejak bangun tidur disertai mual dan sulit berdiri seimbang.",
-      "latencyMs": 4793,
+      "summary": "Pasien lansia mengeluhkan pusing berputar sejak bangun tidur yang disertai mual dan kesulitan menjaga keseimbangan saat berdiri.",
+      "latencyMs": 5299,
       "safetyFlag": null,
       "maxAnchorOverlap": 0.15
     },
@@ -705,10 +705,10 @@
       "flatInRange": true,
       "flatAbsErrorMidpoint": 7.5,
       "source": "ai",
-      "confidence": 0.85,
+      "confidence": 0.82,
       "model": "gemini-3.5-flash-lite",
       "summary": "Pasien mengeluhkan nyeri dan perih saat buang air kecil sejak 3 hari, disertai demam dan pegal pinggang.",
-      "latencyMs": 1263,
+      "latencyMs": 6071,
       "safetyFlag": null,
       "maxAnchorOverlap": 0.14
     },
@@ -720,17 +720,17 @@
         20
       ],
       "midpoint": 12.5,
-      "predictedMinutes": 12,
+      "predictedMinutes": 10,
       "inRange": true,
       "direction": "in",
-      "absErrorMidpoint": 0.5,
+      "absErrorMidpoint": 2.5,
       "flatInRange": true,
       "flatAbsErrorMidpoint": 7.5,
       "source": "ai",
-      "confidence": 0.8,
+      "confidence": 0.82,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien mengeluhkan batuk berdahak yang tidak sembuh hampir 2 minggu, disertai penurunan nafsu makan dan keringat malam.",
-      "latencyMs": 1217,
+      "summary": "Pasien mengeluhkan batuk berdahak selama hampir dua minggu disertai penurunan nafsu makan dan sering berkeringat malam.",
+      "latencyMs": 4319,
       "safetyFlag": null,
       "maxAnchorOverlap": 0.07
     },
@@ -742,17 +742,17 @@
         30
       ],
       "midpoint": 20,
-      "predictedMinutes": 15,
+      "predictedMinutes": 12,
       "inRange": true,
       "direction": "in",
-      "absErrorMidpoint": 5,
+      "absErrorMidpoint": 8,
       "flatInRange": false,
       "flatAbsErrorMidpoint": 15,
       "source": "ai",
       "confidence": 0.85,
       "model": "gemini-3.5-flash-lite",
       "summary": "Pasien datang untuk perawatan luka lecet dalam di lutut akibat jatuh dari motor dan memerlukan penggantian perban.",
-      "latencyMs": 1197,
+      "latencyMs": 4321,
       "safetyFlag": null,
       "maxAnchorOverlap": 0
     },
@@ -771,15 +771,37 @@
       "flatInRange": false,
       "flatAbsErrorMidpoint": 15,
       "source": "ai",
-      "confidence": 0.85,
+      "confidence": 0.88,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien baru datang dengan luka teriris pisau dapur pada jari tangan sejak 1 jam lalu yang masih berdarah dan memerlukan pembersihan serta pembalutan.",
-      "latencyMs": 5218,
+      "summary": "Pasien baru dengan luka iris pada jari tangan akibat pisau dapur 1 jam lalu yang masih mengeluarkan darah dan membutuhkan pembersihan serta perban.",
+      "latencyMs": 4718,
       "safetyFlag": null,
       "maxAnchorOverlap": 0
     },
     {
       "id": "KF-21",
+      "tier": "complex",
+      "expectedRange": [
+        10,
+        30
+      ],
+      "midpoint": 20,
+      "predictedMinutes": 14,
+      "inRange": true,
+      "direction": "in",
+      "absErrorMidpoint": 6,
+      "flatInRange": false,
+      "flatAbsErrorMidpoint": 15,
+      "source": "ai",
+      "confidence": 0.8,
+      "model": "gemini-3.5-flash-lite",
+      "summary": "Pasien lansia dengan keluhan pusing berulang, kesemutan di kaki, gangguan tidur, serta permintaan evaluasi tekanan darah dan gula darah.",
+      "latencyMs": 1075,
+      "safetyFlag": null,
+      "maxAnchorOverlap": 0.16
+    },
+    {
+      "id": "KF-22",
       "tier": "complex",
       "expectedRange": [
         10,
@@ -793,32 +815,10 @@
       "flatInRange": false,
       "flatAbsErrorMidpoint": 15,
       "source": "ai",
-      "confidence": 0.8,
-      "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien lansia usia 71 tahun mengeluhkan pusing sering kambuh, kaki kesemutan, susah tidur, serta ingin evaluasi tekanan darah dan gula darah.",
-      "latencyMs": 1249,
-      "safetyFlag": null,
-      "maxAnchorOverlap": 0.16
-    },
-    {
-      "id": "KF-22",
-      "tier": "complex",
-      "expectedRange": [
-        10,
-        30
-      ],
-      "midpoint": 20,
-      "predictedMinutes": 25,
-      "inRange": true,
-      "direction": "in",
-      "absErrorMidpoint": 5,
-      "flatInRange": false,
-      "flatAbsErrorMidpoint": 15,
-      "source": "ai",
       "confidence": 0.85,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien mengeluhkan nyeri dada sebelah kiri sejak pagi disertai sesak napas berat, keringat dingin, dan pusing.",
-      "latencyMs": 990,
+      "summary": "Pasien mengalami nyeri dada kiri sejak pagi disertai sesak napas berat, keringat dingin, dan pusing.",
+      "latencyMs": 4629,
       "safetyFlag": null,
       "maxAnchorOverlap": 0.06
     },
@@ -839,8 +839,8 @@
       "source": "ai",
       "confidence": 0.85,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien baru usia 19 tahun dengan riwayat kondisi kronis mengalami sesak napas kambuh sejak sore, disertai mengi dan kesulitan berbicara panjang.",
-      "latencyMs": 1009,
+      "summary": "Pasien baru dengan keluhan sesak napas kambuh sejak sore, disertai mengi dan kesulitan berbicara panjang.",
+      "latencyMs": 5142,
       "safetyFlag": null,
       "maxAnchorOverlap": 0.06
     },
@@ -861,8 +861,8 @@
       "source": "ai",
       "confidence": 0.85,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien dengan luka di telapak kaki yang belum kering sejak 1 minggu, disertai bengkak kemerahan dan riwayat gula darah tinggi.",
-      "latencyMs": 1318,
+      "summary": "Pasien lansia dengan riwayat diabetes mengeluhkan luka di telapak kaki yang tidak kunjung kering sejak 1 minggu disertai bengkak dan kemerahan.",
+      "latencyMs": 1145,
       "safetyFlag": null,
       "maxAnchorOverlap": 0.18
     }

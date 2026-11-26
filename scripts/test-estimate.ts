@@ -13,6 +13,7 @@ type CoreModule = {
     trimmedComplaint: string,
   ) => EstimateOutput | null;
   getFallbackMinutes: () => number;
+  ageGroupForYears: (years: number) => string | undefined;
   MIN_MINUTES: number;
   MAX_MINUTES: number;
   DEFAULT_FALLBACK_MINUTES: number;
@@ -73,7 +74,7 @@ const INTEGRATION_CASES: IntegrationCase[] = [
     input: {
       ticketId: "00000000-0000-0000-0000-000000000001",
       complaint: "Minta surat keterangan sehat dan cek tensi rutin",
-      patientAgeYears: 27,
+      ageGroup: "adult",
       visitPurpose: "certificate",
       isNewPatient: false,
       doctorId: "doc-internal-01",
@@ -85,7 +86,7 @@ const INTEGRATION_CASES: IntegrationCase[] = [
     input: {
       ticketId: "00000000-0000-0000-0000-000000000002",
       complaint: "Batuk pilek ringan dan demam 1 hari",
-      patientAgeYears: 31,
+      ageGroup: "adult",
       visitPurpose: "new_complaint",
       isNewPatient: false,
       doctorId: "doc-internal-01",
@@ -97,7 +98,7 @@ const INTEGRATION_CASES: IntegrationCase[] = [
     input: {
       ticketId: "00000000-0000-0000-0000-000000000003",
       complaint: "Perawatan luka pasca kecelakaan di kaki, ganti perban, dan mengeluh sesak napas",
-      patientAgeYears: 54,
+      ageGroup: "adult",
       visitPurpose: "procedure",
       isNewPatient: false,
       doctorId: "doc-internal-02",
@@ -117,7 +118,7 @@ const INTEGRATION_CASES: IntegrationCase[] = [
     input: {
       ticketId: "00000000-0000-0000-0000-000000000005",
       complaint: "Demam tinggi 3 hari disertai batuk",
-      patientAgeYears: 22,
+      ageGroup: "adult",
       visitPurpose: "new_complaint",
     },
     simulateMissingApiKey: true,
@@ -144,7 +145,8 @@ function runUnitChecks(core: CoreModule): { failed: number; total: number } {
   const payload = core.buildSanitizedPromptPayload({
     ticketId: "secret-ticket-999",
     complaint: "Batuk ringan",
-    patientAgeYears: 29,
+    ageGroup: "adult",
+    patientAgeYears: 29, // exact age must not be sent when the group is known
     visitPurpose: "follow_up",
     isNewPatient: false,
     hasChronicCondition: true,
@@ -152,9 +154,9 @@ function runUnitChecks(core: CoreModule): { failed: number; total: number } {
     // Fields the estimator must drop even if a caller passes them by mistake.
     ...({ fullName: "Budi Santoso", phone: "+6281234567890", birthDate: "1997-02-03" } as object),
   } as EstimateInput);
-  const forbidden = ["secret-ticket-999", "secret-doctor-777", "ticketId", "doctorId", "Budi", "+62812", "1997-02-03", "fullName", "phone", "birthDate"];
+  const forbidden = ["secret-ticket-999", "secret-doctor-777", "ticketId", "doctorId", "Budi", "+62812", "1997-02-03", "fullName", "phone", "birthDate", "patientAgeYears", "29"];
   checks.push({
-    name: "Unit A. Privacy guard strips IDs, name, phone and birth date",
+    name: "Unit A. Privacy guard strips IDs, name, phone, birth date and exact age",
     pass: forbidden.every((f) => !payload.includes(f)) && payload.includes("Batuk ringan"),
     detail: payload,
   });
@@ -176,6 +178,24 @@ function runUnitChecks(core: CoreModule): { failed: number; total: number } {
       legacy.isFollowUp === true &&
       legacy.visitPurpose === undefined,
     detail: JSON.stringify({ parsed, certificate, legacy }),
+  });
+
+  // B2. Age group: forwarded as is, derived from a legacy age, invalid values dropped.
+  const fromYears = JSON.parse(core.buildSanitizedPromptPayload({ ticketId: "", complaint: "Demam", patientAgeYears: 3 })) as Record<string, unknown>;
+  const invalidGroup = JSON.parse(
+    core.buildSanitizedPromptPayload({ ticketId: "", complaint: "Demam", ...({ ageGroup: "bayi" } as object) } as EstimateInput),
+  ) as Record<string, unknown>;
+  const bands = [0, 4, 5, 12, 13, 17, 18, 59, 60, 120].map((y) => core.ageGroupForYears(y)).join(",");
+  checks.push({
+    name: "Unit B2. ageGroup forwarded; legacy age mapped to its group; invalid group dropped",
+    pass:
+      parsed.ageGroup === "adult" &&
+      fromYears.ageGroup === "toddler" &&
+      !("patientAgeYears" in fromYears) &&
+      invalidGroup.ageGroup === undefined &&
+      bands === "toddler,toddler,child,child,teen,teen,adult,adult,elderly,elderly" &&
+      core.ageGroupForYears(121) === undefined,
+    detail: JSON.stringify({ fromYears, invalidGroup, bands }),
   });
 
   // C. Clamping lower bound (minutes < 2 -> 2, confidence < 0 -> 0)

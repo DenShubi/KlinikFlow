@@ -4,10 +4,31 @@ import { GoogleGenAI, ThinkingLevel, Type, type ThinkingConfig } from "@google/g
 export const VISIT_PURPOSES = ["new_complaint", "follow_up", "routine_check", "certificate", "procedure"] as const;
 export type VisitPurpose = (typeof VISIT_PURPOSES)[number];
 
+// Age group chosen on the intake form (Indonesian health-ministry style bands).
+// Only the group goes to the model, never an exact age or birth date.
+//   toddler  balita, 0-4 years (includes babies)
+//   child    anak, 5-12
+//   teen     remaja, 13-17
+//   adult    dewasa, 18-59
+//   elderly  lansia, 60 and older
+export const AGE_GROUPS = ["toddler", "child", "teen", "adult", "elderly"] as const;
+export type AgeGroup = (typeof AGE_GROUPS)[number];
+
+// For callers that only know an age in years (older tickets, the benchmark).
+export function ageGroupForYears(years: number): AgeGroup | undefined {
+  if (!Number.isFinite(years) || years < 0 || years > 120) return undefined;
+  if (years < 5) return "toddler";
+  if (years < 13) return "child";
+  if (years < 18) return "teen";
+  if (years < 60) return "adult";
+  return "elderly";
+}
+
 export type EstimateInput = {
   ticketId: string; // server-side internal only; NEVER send to Gemini
   complaint: string; // free text from intake, Indonesian or English
-  patientAgeYears?: number;
+  ageGroup?: AgeGroup; // from the intake form
+  patientAgeYears?: number; // legacy; only its age group is sent, and only when ageGroup is missing
   isFollowUp?: boolean; // legacy flag; derived from visitPurpose when that is given
   visitPurpose?: VisitPurpose;
   isNewPatient?: boolean; // first visit to this doctor
@@ -60,7 +81,7 @@ function getTimeoutMs(): number {
 
 type PromptPayload = {
   complaint: string;
-  patientAgeYears?: number;
+  ageGroup?: AgeGroup;
   isFollowUp?: boolean;
   visitPurpose?: VisitPurpose;
   isNewPatient?: boolean;
@@ -72,36 +93,36 @@ type PromptPayload = {
 // (scripts/eval-estimate.ts checks the word overlap on every run).
 export const FEW_SHOT_EXAMPLES: Array<{ input: PromptPayload; output: { minutes: number; confidence: number; summary: string } }> = [
   {
-    input: { complaint: "Kontrol rutin asam urat, obat masih diminum, tidak ada keluhan", patientAgeYears: 60, visitPurpose: "routine_check", isFollowUp: false, isNewPatient: false, hasChronicCondition: true },
+    input: { complaint: "Kontrol rutin asam urat, obat masih diminum, tidak ada keluhan", ageGroup: "elderly", visitPurpose: "routine_check", isFollowUp: false, isNewPatient: false, hasChronicCondition: true },
     output: { minutes: 2, confidence: 0.9, summary: "Kontrol rutin asam urat dengan pengobatan berjalan dan tanpa keluhan baru." },
   },
   {
-    input: { complaint: "Minta surat rujukan ke poli mata untuk periksa kacamata", patientAgeYears: 33, visitPurpose: "certificate", isFollowUp: false, isNewPatient: false },
+    input: { complaint: "Minta surat rujukan ke poli mata untuk periksa kacamata", ageGroup: "adult", visitPurpose: "certificate", isFollowUp: false, isNewPatient: false },
     output: { minutes: 2, confidence: 0.88, summary: "Pasien meminta surat rujukan ke poli mata untuk pemeriksaan kacamata." },
   },
   {
-    input: { complaint: "Sariawan di bibir bawah sejak 3 hari, perih saat makan", patientAgeYears: 27, visitPurpose: "new_complaint", isFollowUp: false, isNewPatient: false },
+    input: { complaint: "Sariawan di bibir bawah sejak 3 hari, perih saat makan", ageGroup: "adult", visitPurpose: "new_complaint", isFollowUp: false, isNewPatient: false },
     output: { minutes: 3, confidence: 0.85, summary: "Pasien mengeluhkan sariawan di bibir bawah sejak 3 hari yang terasa perih saat makan." },
   },
   {
-    input: { complaint: "Kepala pusing, pegal di bahu, dan susah tidur sejak seminggu", patientAgeYears: 44, visitPurpose: "new_complaint", isFollowUp: false, isNewPatient: true },
+    input: { complaint: "Kepala pusing, pegal di bahu, dan susah tidur sejak seminggu", ageGroup: "adult", visitPurpose: "new_complaint", isFollowUp: false, isNewPatient: true },
     output: { minutes: 7, confidence: 0.75, summary: "Pasien baru dengan tiga keluhan: pusing, pegal di bahu, dan sulit tidur sejak seminggu." },
   },
   {
-    input: { complaint: "Muntah terus sejak subuh, tidak bisa minum, badan sangat lemas", patientAgeYears: 36, visitPurpose: "new_complaint", isFollowUp: false, isNewPatient: false },
+    input: { complaint: "Muntah terus sejak subuh, tidak bisa minum, badan sangat lemas", ageGroup: "adult", visitPurpose: "new_complaint", isFollowUp: false, isNewPatient: false },
     output: { minutes: 18, confidence: 0.75, summary: "Pasien muntah berulang sejak subuh, tidak bisa minum, dan merasa sangat lemas." },
   },
   {
-    input: { complaint: "Telinga kiri sakit dan keluar cairan sejak kemarin, rewel terus", patientAgeYears: 2, visitPurpose: "new_complaint", isFollowUp: false, isNewPatient: true },
-    output: { minutes: 20, confidence: 0.72, summary: "Balita usia 2 tahun dengan nyeri telinga kiri dan keluar cairan sejak kemarin, rewel." },
+    input: { complaint: "Telinga kiri sakit dan keluar cairan sejak kemarin, rewel terus", ageGroup: "toddler", visitPurpose: "new_complaint", isFollowUp: false, isNewPatient: true },
+    output: { minutes: 20, confidence: 0.72, summary: "Balita dengan nyeri telinga kiri dan keluar cairan sejak kemarin, rewel." },
   },
   {
-    input: { complaint: "Cabut jahitan bekas operasi usus buntu", patientAgeYears: 31, visitPurpose: "procedure", isFollowUp: false, isNewPatient: false },
+    input: { complaint: "Cabut jahitan bekas operasi usus buntu", ageGroup: "adult", visitPurpose: "procedure", isFollowUp: false, isNewPatient: false },
     output: { minutes: 12, confidence: 0.82, summary: "Tindakan pelepasan jahitan bekas operasi usus buntu." },
   },
   {
-    input: { complaint: "Kaki bengkak dan sesak saat berbaring, punya sakit jantung dan ginjal", patientAgeYears: 76, visitPurpose: "new_complaint", isFollowUp: false, isNewPatient: false, hasChronicCondition: true },
-    output: { minutes: 25, confidence: 0.78, summary: "Pasien lansia 76 tahun dengan kaki bengkak dan sesak saat berbaring, memiliki penyakit jantung dan ginjal." },
+    input: { complaint: "Kaki bengkak dan sesak saat berbaring, punya sakit jantung dan ginjal", ageGroup: "elderly", visitPurpose: "new_complaint", isFollowUp: false, isNewPatient: false, hasChronicCondition: true },
+    output: { minutes: 25, confidence: 0.78, summary: "Pasien lansia dengan kaki bengkak dan sesak saat berbaring, memiliki penyakit jantung dan ginjal." },
   },
 ];
 
@@ -116,12 +137,14 @@ const SYSTEM_INSTRUCTION = [
   "DURATION TIERS (from a practising GP in Kediri):",
   "- Routine (blood pressure check, stable medication control, routine labs, certificates or referrals): 1-2 minutes; answer 2.",
   "- Mild (mild cough or cold, fever for 1-2 days, mild gastritis, mild itch, small mouth ulcer): 2-3 minutes.",
-  "- Moderate (high fever more than 3 days with cough or mild breathlessness, child with fever and vomiting, diarrhoea or vomiting with weakness): 5-20 minutes; up to 20 if an IV drip may be needed; toddlers under 5 up to about 30.",
+  "- Moderate (high fever more than 3 days with cough or mild breathlessness, child with fever and vomiting, diarrhoea or vomiting with weakness): 5-20 minutes; up to 20 if an IV drip may be needed; toddlers (ageGroup toddler) up to about 30.",
   "- Complex or procedure (wound care, dressing change, stitches, elderly patient with several chronic complaints, chest pain or severe breathlessness): 10-30 minutes.",
+  "",
+  "AGE GROUPS (ageGroup): toddler 0-4 years, child 5-12, teen 13-17, adult 18-59, elderly 60 and older.",
   "",
   "ADJUSTMENTS:",
   "- Count the distinct problems. Symptoms of one illness (for example cough, runny nose and fever of a cold) are ONE problem. Each extra separate problem adds about 2 minutes.",
-  "- Lengthen the estimate for toddlers (under 5 years), the elderly (65 and older), hasChronicCondition true, and procedures (visitPurpose procedure).",
+  "- Lengthen the estimate for ageGroup toddler and elderly, hasChronicCondition true, and procedures (visitPurpose procedure).",
   "- A new patient (isNewPatient true) needs about 1 minute more than a returning patient, but stay inside the tier.",
   "- visitPurpose routine_check or certificate is usually routine; follow_up is usually routine or mild unless the complaint describes a procedure or a worsening problem.",
   "- When unsure between two values, choose the LOWER one. Overestimating makes patients waiting at home arrive late and miss their turn.",
@@ -206,24 +229,29 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function isAgeGroup(value: unknown): value is AgeGroup {
+  return typeof value === "string" && (AGE_GROUPS as readonly string[]).includes(value);
+}
+
 function isVisitPurpose(value: unknown): value is VisitPurpose {
   return typeof value === "string" && (VISIT_PURPOSES as readonly string[]).includes(value);
 }
 
 export function buildSanitizedPromptPayload(input: EstimateInput): string {
   // Privacy guard: ONLY forward the complaint and these coarse, non-identifying
-  // fields. Never include ticketId, doctorId, a name, phone number or birth date.
+  // fields. Never include ticketId, doctorId, a name, phone number, birth date
+  // or an exact age (only the age group).
   const payload: PromptPayload = {
     complaint: input.complaint.trim(),
   };
 
-  if (
-    typeof input.patientAgeYears === "number" &&
-    Number.isFinite(input.patientAgeYears) &&
-    input.patientAgeYears >= 0 &&
-    input.patientAgeYears <= 120
-  ) {
-    payload.patientAgeYears = Math.round(input.patientAgeYears);
+  const ageGroup = isAgeGroup(input.ageGroup)
+    ? input.ageGroup
+    : typeof input.patientAgeYears === "number"
+      ? ageGroupForYears(input.patientAgeYears)
+      : undefined;
+  if (ageGroup) {
+    payload.ageGroup = ageGroup;
   }
 
   if (isVisitPurpose(input.visitPurpose)) {

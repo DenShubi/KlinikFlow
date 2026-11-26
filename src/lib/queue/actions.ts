@@ -39,7 +39,7 @@ export async function createTicket(_prev: ActionResult, formData: FormData): Pro
   const supabase = await createClient();
   const { data: patient, error: patientError } = await supabase
     .from("patients")
-    .insert({ full_name: fullName, phone }) // age is stored per visit on the ticket, not as a birth date
+    .insert({ full_name: fullName, phone }) // the age group is stored per visit on the ticket, not a birth date
     .select("id")
     .single();
   if (patientError) return { ok: false, error: queueErrorMessage(patientError) };
@@ -47,7 +47,7 @@ export async function createTicket(_prev: ActionResult, formData: FormData): Pro
   const estimate = await estimateForQueue({
     ticketId: "", // not created yet; the estimator never sends it anywhere
     complaint,
-    patientAgeYears: visit.value.ageYears,
+    ageGroup: visit.value.ageGroup,
     visitPurpose: visit.value.visitPurpose,
     isNewPatient: visit.value.isNewPatient,
     hasChronicCondition: visit.value.hasChronicCondition,
@@ -63,7 +63,7 @@ export async function createTicket(_prev: ActionResult, formData: FormData): Pro
     p_visit_purpose: visit.value.visitPurpose,
     p_is_new_patient: visit.value.isNewPatient,
     p_has_chronic_condition: visit.value.hasChronicCondition,
-    p_patient_age_years: visit.value.ageYears,
+    p_age_group: visit.value.ageGroup,
     p_predicted_minutes: estimate.minutes,
     p_prediction_source: estimate.source,
     p_prediction_confidence: estimate.confidence,

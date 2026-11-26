@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import type { EstimateInput, EstimateOutput, VisitPurpose } from "../src/lib/ai/estimate-core";
+import type { AgeGroup, EstimateInput, EstimateOutput, VisitPurpose } from "../src/lib/ai/estimate-core";
 
 // Evaluates the consultation-duration estimator against the practising
 // doctor's ranges (data/eval-complaints.json, expectedRange per case).
@@ -22,7 +22,7 @@ type EvalCase = {
   id: string;
   tier: Tier;
   complaint: string;
-  patientAgeYears?: number;
+  ageGroup?: AgeGroup;
   visitPurpose?: VisitPurpose;
   isNewPatient?: boolean;
   hasChronicCondition?: boolean;
@@ -238,7 +238,7 @@ async function main(): Promise<void> {
     const output = await core.estimateConsultation({
       ticketId: `eval-${item.id}`,
       complaint: item.complaint,
-      patientAgeYears: item.patientAgeYears,
+      ageGroup: item.ageGroup,
       visitPurpose: item.visitPurpose,
       isNewPatient: item.isNewPatient,
       hasChronicCondition: item.hasChronicCondition,

@@ -16,11 +16,14 @@ calls it when a ticket joins the queue, through `estimateForQueue` in
 
 ```ts
 type VisitPurpose = "new_complaint" | "follow_up" | "routine_check" | "certificate" | "procedure";
+// balita 0-4, anak 5-12, remaja 13-17, dewasa 18-59, lansia 60+
+type AgeGroup = "toddler" | "child" | "teen" | "adult" | "elderly";
 
 type EstimateInput = {
   ticketId: string;              // uuid of the queue ticket (never sent to Gemini)
   complaint: string;             // free text from intake, Indonesian or English
-  patientAgeYears?: number;      // 0..120, from the intake form
+  ageGroup?: AgeGroup;           // from the intake form
+  patientAgeYears?: number;      // legacy; only its age group is sent, and only without ageGroup
   visitPurpose?: VisitPurpose;   // why the patient comes (intake form)
   isNewPatient?: boolean;        // first visit to this doctor
   hasChronicCondition?: boolean; // yes/no only, never the condition itself
@@ -46,9 +49,9 @@ Rules:
   to 2..30.
 - Never throws. On any error or timeout (`GEMINI_TIMEOUT_MS`, default 4 s) it
   returns `{ minutes: QUEUE_FALLBACK_CONSULT_MINUTES (default 5), source: "fallback" }`.
-- Only `complaint`, `patientAgeYears`, `visitPurpose`, `isNewPatient`,
+- Only `complaint`, `ageGroup`, `visitPurpose`, `isNewPatient`,
   `hasChronicCondition` and `isFollowUp` are sent to Gemini; `ticketId`,
-  `doctorId`, the name, phone number and birth date stay on the server.
+  `doctorId`, the name, phone number, birth date and any exact age stay on the server.
   Gender is not collected.
 - `estimateForQueue` adds `QUEUE_CHANGEOVER_MINUTES` (default 1) for the next
   patient to come in. The queue stores that total slot as `predicted_minutes`.
@@ -68,7 +71,7 @@ Both sides use table `public.queue_tickets` (one row per visit), created in
 | `visit_purpose` | enum `visit_purpose` | `visitPurpose` |
 | `is_new_patient` | `boolean` | `isNewPatient` |
 | `has_chronic_condition` | `boolean` | `hasChronicCondition` |
-| `patient_age_years` | `smallint` (0..120) | `patientAgeYears` (asked on the form; older rows: `patients.birth_date`) |
+| `age_group` | enum `age_group` | `ageGroup` (asked on the form; older rows: `patients.birth_date`) |
 | `is_follow_up` | `boolean` | `isFollowUp` (= `visit_purpose = 'follow_up'`) |
 | `doctor_id` | `uuid` | `doctorId` |
 
@@ -105,7 +108,7 @@ The names Farhan needs are in [`.env.example`](../.env.example), under
 ## Open questions
 
 - [ ] Is `minutes` enough, or does the queue also need a range (min/max)?
-- [x] Which intake fields does the AI need beyond `complaint`? Age, visit
+- [x] Which intake fields does the AI need beyond `complaint`? Age group, visit
   purpose, new patient, chronic condition (26 Nov; migration `visit_details`).
 - [ ] Do the doctor's ranges include patient changeover? Not confirmed; the
   queue adds `QUEUE_CHANGEOVER_MINUTES` on top until it is.

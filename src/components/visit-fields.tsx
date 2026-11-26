@@ -1,11 +1,11 @@
-import { CHRONIC_OPTIONS, MAX_AGE, MIN_AGE, VISIT_PURPOSE_OPTIONS } from "@/lib/queue/visit";
+import { AGE_GROUP_OPTIONS, CHRONIC_OPTIONS, VISIT_PURPOSE_OPTIONS } from "@/lib/queue/visit";
 
 // Visit details shared by the patient intake and the receptionist form:
-// age, visit purpose, seen this doctor before, chronic condition (optional).
-// Field names match parseVisitDetails() in src/lib/queue/visit.ts.
+// age group, seen this doctor before, visit purpose, chronic condition
+// (optional). Field names match parseVisitDetails() in src/lib/queue/visit.ts.
 
 export type VisitFieldValues = {
-  ageYears?: string;
+  ageGroup?: string;
   visitPurpose?: string;
   seenBefore?: string;
   chronic?: string;
@@ -20,37 +20,44 @@ const SEGMENT =
 export function VisitFields({ values = {}, dense = false }: { values?: VisitFieldValues; dense?: boolean }) {
   return (
     <div className={`flex flex-col ${dense ? "gap-4" : "gap-5"}`}>
-      <div className="grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)] items-start gap-3">
-        <label className="flex flex-col gap-1.5 text-sm font-semibold text-ink">
-          Usia (tahun)
-          <input
-            name="ageYears"
-            type="number"
-            inputMode="numeric"
-            required
-            min={MIN_AGE}
-            max={MAX_AGE}
-            step={1}
-            defaultValue={values.ageYears}
-            className="field tabular-nums"
-          />
-        </label>
+      <fieldset className="flex min-w-0 flex-col">
+        <legend className={LEGEND}>
+          Kelompok usia <span className="font-normal text-muted">(tahun)</span>
+        </legend>
+        <div className="grid grid-cols-5 gap-1.5">
+          {AGE_GROUP_OPTIONS.map((o) => (
+            <label
+              key={o.value}
+              className={`${OPTION} min-h-[56px] flex-col justify-center gap-0.5 px-1 py-2 text-center`}
+            >
+              <input
+                type="radio"
+                name="ageGroup"
+                value={o.value}
+                required
+                defaultChecked={values.ageGroup === o.value}
+                className="sr-only"
+              />
+              <span className="text-sm font-semibold leading-tight">{o.label}</span>
+              <span className="whitespace-nowrap text-xs leading-tight text-muted tabular-nums">{o.hint}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
 
-        <fieldset className="flex min-w-0 flex-col">
-          <legend className="mb-1.5 text-sm font-semibold text-ink">Pernah ke dokter ini?</legend>
-          <div className="flex gap-1 rounded-[10px] bg-tint p-1">
-            <label className={SEGMENT}>
-              <input type="radio" name="seenBefore" value="ya" required defaultChecked={values.seenBefore === "ya"} className="sr-only" />
-              Ya
-            </label>
-            <label className={SEGMENT}>
-              <input type="radio" name="seenBefore" value="belum" defaultChecked={values.seenBefore === "belum"} className="sr-only" />
-              Belum
-            </label>
-          </div>
-        </fieldset>
-      </div>
-      <p className="-mt-2 text-[13px] text-muted">Isi 0 untuk bayi di bawah 1 tahun.</p>
+      <fieldset className="flex min-w-0 flex-col">
+        <legend className={LEGEND}>Pernah berobat ke dokter ini sebelumnya?</legend>
+        <div className="flex gap-1 rounded-[10px] bg-tint p-1">
+          <label className={SEGMENT}>
+            <input type="radio" name="seenBefore" value="ya" required defaultChecked={values.seenBefore === "ya"} className="sr-only" />
+            Ya, pernah
+          </label>
+          <label className={SEGMENT}>
+            <input type="radio" name="seenBefore" value="belum" defaultChecked={values.seenBefore === "belum"} className="sr-only" />
+            Belum pernah
+          </label>
+        </div>
+      </fieldset>
 
       <fieldset className="flex min-w-0 flex-col">
         <legend className={LEGEND}>Tujuan kunjungan</legend>

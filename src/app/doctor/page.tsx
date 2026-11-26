@@ -8,7 +8,7 @@ import { LiveRefresh } from "@/components/queue/live-refresh";
 import { PageTitle, StaffHeader } from "@/components/staff-header";
 import { PrintLabel, Ticket } from "@/components/ticket";
 import { ageInYears } from "@/lib/age";
-import { VISIT_PURPOSE_LABEL } from "@/lib/queue/visit";
+import { AGE_GROUP_LABEL, VISIT_PURPOSE_LABEL } from "@/lib/queue/visit";
 import { requireStaff } from "@/lib/auth/dal";
 import { clinicToday, formatClinicDate, formatClinicTime, minutesUntil } from "@/lib/clinic-time";
 import { callNext, finishConsultation, markAbsent, startConsultation } from "@/lib/queue/actions";
@@ -51,7 +51,7 @@ export default async function DoctorPage() {
     supabase
       .from("queue_tickets")
       .select(
-        "id, ticket_number, position, status, channel, checked_in_at, called_at, started_at, estimated_call_at, actual_minutes, complaint, is_follow_up, visit_purpose, is_new_patient, has_chronic_condition, patient_age_years, predicted_minutes, prediction_source, ai_summary, defer_count, missed_turn_at, patients (full_name, birth_date)",
+        "id, ticket_number, position, status, channel, checked_in_at, called_at, started_at, estimated_call_at, actual_minutes, complaint, is_follow_up, visit_purpose, is_new_patient, has_chronic_condition, age_group, predicted_minutes, prediction_source, ai_summary, defer_count, missed_turn_at, patients (full_name, birth_date)",
       )
       .eq("doctor_id", staff.doctorId)
       .eq("service_date", today)
@@ -79,8 +79,13 @@ export default async function DoctorPage() {
 
   const state = inConsultation ? "consult" : called ? "called" : "next";
   const stateLabel = { consult: "Sedang diperiksa", called: "Dipanggil", next: "Berikutnya" }[state];
-  // Age from the intake form (per visit); older rows fall back to the birth date.
-  const age = shown ? (shown.patient_age_years ?? ageInYears(shown.patients?.birth_date, today)) : undefined;
+  // Age group from the intake form (per visit); older rows fall back to the birth date.
+  const ageLabel = (t: { age_group: keyof typeof AGE_GROUP_LABEL | null; patients: { birth_date: string | null } | null }) => {
+    if (t.age_group) return AGE_GROUP_LABEL[t.age_group];
+    const years = ageInYears(t.patients?.birth_date, today);
+    return years === undefined ? undefined : `${years} thn`;
+  };
+  const age = shown ? ageLabel(shown) : undefined;
   const summary = shown?.ai_summary?.trim();
 
   return (
@@ -184,7 +189,7 @@ export default async function DoctorPage() {
                             ? "Kontrol"
                             : "Kunjungan baru"}
                       </Tag>
-                      {age !== undefined ? <Tag>{age} thn</Tag> : null}
+                      {age ? <Tag>{age}</Tag> : null}
                       {shown.has_chronic_condition ? <Tag tone="warn">Penyakit kronis</Tag> : null}
                       {shown.is_new_patient ? <Tag>Pasien baru</Tag> : null}
                       {shown.predicted_minutes ? <Tag>±{shown.predicted_minutes} mnt</Tag> : null}
@@ -232,7 +237,7 @@ export default async function DoctorPage() {
               </div>
               <ol>
                 {queue.map((t, i) => {
-                  const tAge = t.patient_age_years ?? ageInYears(t.patients?.birth_date, today);
+                  const tAge = ageLabel(t);
                   return (
                     <li key={t.id} className="flex gap-3.5 border-b border-line-soft px-5 py-4 last:border-b-0">
                       <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[8px] bg-tint text-xs font-semibold tabular-nums text-accent-strong">
@@ -257,7 +262,7 @@ export default async function DoctorPage() {
                             <Tag>Kontrol</Tag>
                           ) : null}
                           {t.has_chronic_condition ? <Tag tone="warn">Kronis</Tag> : null}
-                          {tAge !== undefined ? <Tag>{tAge} thn</Tag> : null}
+                          {tAge ? <Tag>{tAge}</Tag> : null}
                           {!t.checked_in_at ? (
                             <Tag tone="warn">{t.missed_turn_at ? "Terlewat · belum tiba" : "Belum tiba"}</Tag>
                           ) : null}

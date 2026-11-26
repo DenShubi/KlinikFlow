@@ -211,7 +211,7 @@ The app is a standard Next.js project and deploys to
 | Path | For | What it does |
 | --- | --- | --- |
 | `/` | Everyone | Start page: one live ticket per doctor (who is being served, how many wait, opening hours; swipe or use the dots), take a queue number, staff sign-in |
-| `/intake` | Patients | Register remotely: choose a doctor who is open now (with the current wait), enter name, WhatsApp number, complaint, age, visit purpose, whether they have seen this doctor before and (optionally) a chronic condition; short follow-up questions clarify the complaint |
+| `/intake` | Patients | Register remotely: choose a doctor who is open now (with the current wait), enter name, WhatsApp number, complaint, age group, visit purpose, whether they have seen this doctor before and (optionally) a chronic condition; short follow-up questions clarify the complaint |
 | `/ticket/<id>` | Patients | The patient's own ticket: number, people ahead, estimated call time, when to arrive; updates live |
 | `/login` | Staff | Sign in |
 | `/doctor` | Doctors | Dashboard: current patient with a timer, one button to call / start / finish, complaint summary, next patients, today's predicted vs actual durations |
@@ -246,7 +246,7 @@ role, stored in the `profiles` table, which only trusted server code can change.
 | Role | Signs in to | Can see | Can change |
 | --- | --- | --- | --- |
 | Receptionist | `/reception` | Every doctor's queue, all patients, their WhatsApp numbers (through `reception_patient_phones`), sent messages | Add and edit patients; add tickets, mark arrivals, cancel (through the queue functions) |
-| Doctor | `/doctor` | Only their own queue and the patients in it (name, birth date), with complaints and AI summaries; no phone numbers | Call, start and finish patients in their own queue (through the queue functions) |
+| Doctor | `/doctor` | Only their own queue and the patients in it (name, age group), with complaints and AI summaries; no phone numbers | Call, start and finish patients in their own queue (through the queue functions) |
 
 The rules are enforced three times: the proxy sends signed-out visitors to
 `/login`, each page checks the role (`src/lib/auth/dal.ts`), and row-level
@@ -482,11 +482,11 @@ estimating how long a GP consultation will take (2–30 minutes, following a
 practising doctor's duration tiers) and writing a one- or two-sentence neutral
 summary of the patient's complaint for the doctor. The AI never diagnoses,
 recommends medication or reorders the queue by urgency. Only the complaint
-text, age in years, visit purpose, whether the patient is new and a yes/no
+text, an age group, visit purpose, whether the patient is new and a yes/no
 chronic-condition flag are sent to the model; never a name, phone number, birth
 date or ticket id. Every answer is validated, and on timeout or error the queue
 uses a default length (5 minutes) so it never blocks. On a 24-case synthetic
-benchmark, 22 of 24 estimates fell inside the doctor's ranges.
+benchmark, 21 of 24 estimates fell inside the doctor's ranges.
 
 Full details, evaluation results and known limitations:
 [docs/AI_DISCLOSURE.md](docs/AI_DISCLOSURE.md).

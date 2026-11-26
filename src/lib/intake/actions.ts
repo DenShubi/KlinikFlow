@@ -33,7 +33,7 @@ export async function registerRemote(_prev: IntakeState, formData: FormData): Pr
     phone: String(formData.get("phone") ?? "").trim(),
     complaint: String(formData.get("complaint") ?? "").trim(),
     // Visit details (kept so the form can show them again after an error).
-    ageYears: String(formData.get("ageYears") ?? "").trim(),
+    ageGroup: String(formData.get("ageGroup") ?? ""),
     visitPurpose: String(formData.get("visitPurpose") ?? ""),
     seenBefore: String(formData.get("seenBefore") ?? ""),
     chronic: String(formData.get("chronic") ?? ""),
@@ -113,7 +113,7 @@ export async function registerRemote(_prev: IntakeState, formData: FormData): Pr
   if (!patientId) {
     const { data: created, error } = await admin
       .from("patients")
-      .insert({ full_name: values.fullName, phone }) // age is stored per visit on the ticket, not as a birth date
+      .insert({ full_name: values.fullName, phone }) // the age group is stored per visit on the ticket, not a birth date
       .select("id")
       .single();
     if (error || !created) return fail("Pendaftaran gagal. Coba lagi.");
@@ -123,7 +123,7 @@ export async function registerRemote(_prev: IntakeState, formData: FormData): Pr
   const estimate = await estimateForQueue({
     ticketId: "",
     complaint: values.complaint,
-    patientAgeYears: visit.value.ageYears,
+    ageGroup: visit.value.ageGroup,
     visitPurpose: visit.value.visitPurpose,
     isNewPatient: visit.value.isNewPatient,
     hasChronicCondition: visit.value.hasChronicCondition,
@@ -139,7 +139,7 @@ export async function registerRemote(_prev: IntakeState, formData: FormData): Pr
     p_visit_purpose: visit.value.visitPurpose,
     p_is_new_patient: visit.value.isNewPatient,
     p_has_chronic_condition: visit.value.hasChronicCondition,
-    p_patient_age_years: visit.value.ageYears,
+    p_age_group: visit.value.ageGroup,
     p_predicted_minutes: estimate.minutes,
     p_prediction_source: estimate.source,
     p_prediction_confidence: estimate.confidence,
