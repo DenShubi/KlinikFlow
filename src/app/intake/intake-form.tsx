@@ -8,6 +8,7 @@ import {
   type ClarifierAnswers,
 } from "@/components/ai";
 import { CheckIcon } from "@/components/icons";
+import { VisitFields } from "@/components/visit-fields";
 import type { ClarifyQuestion } from "@/lib/ai/clarify-core";
 import type { ServiceDateOption } from "@/lib/clinic-hours";
 import { registerRemote, type IntakeState } from "@/lib/intake/actions";
@@ -90,7 +91,7 @@ export function IntakeForm({ doctors }: { doctors: DoctorOption[] }) {
 
   return (
     <form action={formAction} className="flex flex-col gap-7">
-      <fieldset className="flex flex-col gap-2.5">
+      <fieldset className="flex min-w-0 flex-col gap-2.5">
         <legend className="mb-2.5 text-sm font-semibold">Dokter</legend>
         {doctors.map((d) => {
           const bookable = d.dates.length > 0;
@@ -144,7 +145,7 @@ export function IntakeForm({ doctors }: { doctors: DoctorOption[] }) {
       </fieldset>
 
       {availableDates.length > 0 ? (
-        <fieldset className="flex flex-col gap-2.5">
+        <fieldset className="flex min-w-0 flex-col gap-2.5">
           <legend className="mb-2 text-sm font-semibold">Tanggal kunjungan</legend>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {availableDates.map((option) => (
@@ -219,22 +220,7 @@ export function IntakeForm({ doctors }: { doctors: DoctorOption[] }) {
           />
         </div>
 
-        <label className={LABEL}>
-          <span>
-            Tanggal lahir <span className="font-normal text-muted">(opsional)</span>
-          </span>
-          <input name="birthDate" type="date" autoComplete="bday" defaultValue={v.birthDate} className="field" />
-        </label>
-
-        <label className="flex min-h-[48px] cursor-pointer items-center gap-3 rounded-[10px] bg-surface px-4 text-[15px] shadow-[inset_0_0_0_1px_var(--color-line)] has-[:checked]:bg-tint has-[:checked]:shadow-[inset_0_0_0_1px_var(--color-accent)]">
-          <input
-            type="checkbox"
-            name="isFollowUp"
-            defaultChecked={v.isFollowUp === "on"}
-            className="h-[18px] w-[18px] accent-[var(--color-accent)]"
-          />
-          Kontrol lanjutan
-        </label>
+        <VisitFields values={v} />
       </div>
 
       {/* Hidden from people; bots fill it in. */}

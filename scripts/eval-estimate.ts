@@ -2,7 +2,19 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import type { EstimateInput, EstimateOutput } from "../src/lib/ai/estimate-core";
+import type { EstimateInput, EstimateOutput, VisitPurpose } from "../src/lib/ai/estimate-core";
+
+// Evaluates the consultation-duration estimator against the practising
+// doctor's ranges (data/eval-complaints.json, expectedRange per case).
+//
+//   node scripts/eval-estimate.ts [--limit=N] [--delay=ms] [--baseline=5] [--dataset=...] [--out=...]
+//
+// Metrics (consultation minutes, without patient changeover):
+//   - in-range rate: prediction inside the doctor's [lo, hi]
+//   - MAE vs the range midpoint
+//   - the same for a flat baseline (default 5 min, the new fallback)
+//   - per-tier results, fallback count, latency, summary safety flags
+//   - overlap check: no few-shot anchor in the prompt may resemble an eval case
 
 type Tier = "short" | "mild" | "moderate" | "complex";
 
@@ -11,8 +23,10 @@ type EvalCase = {
   tier: Tier;
   complaint: string;
   patientAgeYears?: number;
-  isFollowUp?: boolean;
-  expectedMinutes: number;
+  visitPurpose?: VisitPurpose;
+  isNewPatient?: boolean;
+  hasChronicCondition?: boolean;
+  expectedRange: [number, number];
   notes?: string;
 };
 
@@ -22,6 +36,7 @@ type EvalDataset = {
     version: string;
     synthetic: boolean;
     source: string;
+    referenceRanges?: string;
     flatBaselineMinutes: number;
   };
   cases: EvalCase[];
@@ -30,24 +45,26 @@ type EvalDataset = {
 type CaseResult = {
   id: string;
   tier: Tier;
-  expectedMinutes: number;
+  expectedRange: [number, number];
+  midpoint: number;
   predictedMinutes: number;
-  absErrorAi: number;
-  absErrorFlat: number;
+  inRange: boolean;
+  direction: "under" | "in" | "over";
+  absErrorMidpoint: number;
+  flatInRange: boolean;
+  flatAbsErrorMidpoint: number;
   source: EstimateOutput["source"];
   confidence?: number;
   model?: string;
   summary?: string;
   latencyMs: number;
   safetyFlag: string | null;
+  maxAnchorOverlap: number;
 };
 
-type Metrics = {
-  mae: number;
-  rmse: number;
-  within3Pct: number;
-  within5Pct: number;
-};
+type Metrics = { n: number; inRangePct: number; inRangeCount: number; maeMidpoint: number; under: number; over: number };
+
+const OVERLAP_LIMIT = 0.4; // Jaccard similarity of complaint words above which an anchor counts as a near-duplicate
 
 const FORBIDDEN_SUMMARY_PATTERNS: Array<{ label: string; regex: RegExp }> = [
   { label: "diagnosis word", regex: /\b(diagnosis|diagnosa|menderita|terkena|kemungkinan besar)\b/i },
@@ -56,6 +73,11 @@ const FORBIDDEN_SUMMARY_PATTERNS: Array<{ label: string; regex: RegExp }> = [
     regex: /\b(minum obat|konsumsi obat|resepkan|paracetamol|amoxicillin|ibuprofen|antibiotik)\b/i,
   },
 ];
+
+const STOPWORDS = new Set([
+  "dan", "dengan", "sejak", "yang", "tidak", "untuk", "atau", "ada", "sudah", "masih", "agak", "sedikit", "terasa",
+  "disertai", "setelah", "saat", "sering", "perlu", "bisa", "pasien", "the", "and", "since", "for", "with", "of",
+]);
 
 function loadEnvFile(filename: string): void {
   const envPath = path.resolve(process.cwd(), filename);
@@ -110,31 +132,37 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-function computeMetrics(expected: number[], predicted: number[]): Metrics {
-  const n = expected.length;
-  if (n === 0) {
-    return { mae: 0, rmse: 0, within3Pct: 0, within5Pct: 0 };
-  }
+function words(text: string): Set<string> {
+  return new Set(
+    text
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((w) => w.length > 2 && !STOPWORDS.has(w)),
+  );
+}
 
+function jaccard(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 || b.size === 0) return 0;
+  let shared = 0;
+  for (const w of a) if (b.has(w)) shared += 1;
+  return shared / (a.size + b.size - shared);
+}
+
+function metricsFor(rows: Array<{ predicted: number; range: [number, number] }>): Metrics {
+  const n = rows.length;
+  if (n === 0) return { n: 0, inRangePct: 0, inRangeCount: 0, maeMidpoint: 0, under: 0, over: 0 };
+  let inRange = 0;
+  let under = 0;
+  let over = 0;
   let sumAbs = 0;
-  let sumSq = 0;
-  let within3 = 0;
-  let within5 = 0;
-
-  for (let i = 0; i < n; i += 1) {
-    const err = Math.abs(predicted[i] - expected[i]);
-    sumAbs += err;
-    sumSq += err * err;
-    if (err <= 3) within3 += 1;
-    if (err <= 5) within5 += 1;
+  for (const { predicted, range } of rows) {
+    const [lo, hi] = range;
+    if (predicted < lo) under += 1;
+    else if (predicted > hi) over += 1;
+    else inRange += 1;
+    sumAbs += Math.abs(predicted - (lo + hi) / 2);
   }
-
-  return {
-    mae: round2(sumAbs / n),
-    rmse: round2(Math.sqrt(sumSq / n)),
-    within3Pct: round2((within3 / n) * 100),
-    within5Pct: round2((within5 / n) * 100),
-  };
+  return { n, inRangePct: round2((inRange / n) * 100), inRangeCount: inRange, maeMidpoint: round2(sumAbs / n), under, over };
 }
 
 function percentile(values: number[], p: number): number {
@@ -158,75 +186,91 @@ async function main(): Promise<void> {
   loadEnvFile(".env.local");
   loadEnvFile(".env");
 
-  const datasetPath = path.resolve(
-    process.cwd(),
-    parseArgValue("--dataset=") ?? "data/eval-complaints.json",
-  );
-  const outPath = path.resolve(
-    process.cwd(),
-    parseArgValue("--out=") ?? "data/eval-report.json",
-  );
+  const datasetPath = path.resolve(process.cwd(), parseArgValue("--dataset=") ?? "data/eval-complaints.json");
+  const outPath = path.resolve(process.cwd(), parseArgValue("--out=") ?? "data/eval-report.json");
   const delayMs = parsePositiveIntArg("--delay=", 400);
 
-  const rawDataset = fs.readFileSync(datasetPath, "utf8");
-  const dataset = JSON.parse(rawDataset) as EvalDataset;
+  const dataset = JSON.parse(fs.readFileSync(datasetPath, "utf8")) as EvalDataset;
   const limit = parsePositiveIntArg("--limit=", dataset.cases.length);
   const flatBaseline = parsePositiveIntArg("--baseline=", dataset.metadata.flatBaselineMinutes);
   const selectedCases = dataset.cases.slice(0, limit);
 
-  const coreModuleUrl = pathToFileURL(
-    path.resolve(process.cwd(), "src/lib/ai/estimate-core.ts"),
-  ).href;
-  const { estimateConsultation } = (await import(coreModuleUrl)) as {
+  const coreModuleUrl = pathToFileURL(path.resolve(process.cwd(), "src/lib/ai/estimate-core.ts")).href;
+  const core = (await import(coreModuleUrl)) as {
     estimateConsultation: (input: EstimateInput) => Promise<EstimateOutput>;
+    FEW_SHOT_EXAMPLES: Array<{ input: { complaint: string } }>;
   };
+
+  // Anchors in the prompt must not resemble any eval case (otherwise the
+  // benchmark partly measures memorisation of the prompt).
+  const anchorWords = core.FEW_SHOT_EXAMPLES.map((e) => ({ complaint: e.input.complaint, words: words(e.input.complaint) }));
+  const overlapRows = selectedCases.map((c) => {
+    const w = words(c.complaint);
+    let best = { score: 0, anchor: "" };
+    for (const a of anchorWords) {
+      const score = jaccard(w, a.words);
+      if (score > best.score) best = { score, anchor: a.complaint };
+    }
+    return { id: c.id, maxOverlap: round2(best.score), closestAnchor: best.anchor };
+  });
+  const overlapping = overlapRows.filter((r) => r.maxOverlap >= OVERLAP_LIMIT);
 
   const hasApiKey = Boolean(process.env.GEMINI_API_KEY?.trim());
   const modelLabel = process.env.GEMINI_MODEL?.trim() || "gemini-3.5-flash-lite (default)";
   const timeoutLabel = process.env.GEMINI_TIMEOUT_MS?.trim() || "4000 (default)";
 
-  console.log(`=== ${dataset.metadata.name} ===`);
+  console.log(`=== ${dataset.metadata.name} v${dataset.metadata.version} ===`);
   console.log(
     `Cases: ${selectedCases.length} | Model: ${modelLabel} | Timeout: ${timeoutLabel}ms | API Key: ${hasApiKey ? "configured" : "NOT SET"}`,
   );
-  console.log(`Flat baseline: ${flatBaseline} min\n`);
+  console.log(`Flat baseline: ${flatBaseline} min | Anchors in prompt: ${anchorWords.length}`);
+  console.log(
+    `Anchor overlap: max ${Math.max(...overlapRows.map((r) => r.maxOverlap))} (limit ${OVERLAP_LIMIT}); ${overlapping.length} case(s) over the limit\n`,
+  );
 
   const results: CaseResult[] = [];
 
   for (let i = 0; i < selectedCases.length; i += 1) {
     const item = selectedCases[i];
+    const [lo, hi] = item.expectedRange;
+    const midpoint = (lo + hi) / 2;
     const started = Date.now();
-    const output = await estimateConsultation({
+    const output = await core.estimateConsultation({
       ticketId: `eval-${item.id}`,
       complaint: item.complaint,
       patientAgeYears: item.patientAgeYears,
-      isFollowUp: item.isFollowUp,
+      visitPurpose: item.visitPurpose,
+      isNewPatient: item.isNewPatient,
+      hasChronicCondition: item.hasChronicCondition,
       doctorId: "eval-doctor-01",
     });
     const latencyMs = Date.now() - started;
-
-    const absErrorAi = Math.abs(output.minutes - item.expectedMinutes);
-    const absErrorFlat = Math.abs(flatBaseline - item.expectedMinutes);
+    const inRange = output.minutes >= lo && output.minutes <= hi;
     const safetyFlag = checkSummarySafety(output.summary);
 
     results.push({
       id: item.id,
       tier: item.tier,
-      expectedMinutes: item.expectedMinutes,
+      expectedRange: item.expectedRange,
+      midpoint,
       predictedMinutes: output.minutes,
-      absErrorAi,
-      absErrorFlat,
+      inRange,
+      direction: output.minutes < lo ? "under" : output.minutes > hi ? "over" : "in",
+      absErrorMidpoint: round2(Math.abs(output.minutes - midpoint)),
+      flatInRange: flatBaseline >= lo && flatBaseline <= hi,
+      flatAbsErrorMidpoint: round2(Math.abs(flatBaseline - midpoint)),
       source: output.source,
       confidence: output.confidence,
       model: output.model,
       summary: output.summary,
       latencyMs,
       safetyFlag,
+      maxAnchorOverlap: overlapRows[i].maxOverlap,
     });
 
     const flagNote = safetyFlag ? ` [SAFETY FLAG: ${safetyFlag}]` : "";
     console.log(
-      `${item.id} [${item.tier.padEnd(8)}] expected=${String(item.expectedMinutes).padStart(2)}m | ai=${String(output.minutes).padStart(2)}m (${output.source.padEnd(8)}) | err=${String(absErrorAi).padStart(2)}m vs flat=${String(absErrorFlat).padStart(2)}m | ${latencyMs}ms${flagNote}`,
+      `${item.id} [${item.tier.padEnd(8)}] range=${`${lo}-${hi}`.padStart(5)}m | ai=${String(output.minutes).padStart(2)}m ${inRange ? "IN " : output.minutes < lo ? "LOW" : "HIGH"} (${output.source.padEnd(8)}) | ${latencyMs}ms${flagNote}`,
     );
 
     if (i < selectedCases.length - 1 && hasApiKey && delayMs > 0) {
@@ -234,90 +278,60 @@ async function main(): Promise<void> {
     }
   }
 
-  const expectedArr = results.map((r) => r.expectedMinutes);
-  const aiArr = results.map((r) => r.predictedMinutes);
-  const flatArr = results.map(() => flatBaseline);
-  const datasetMean = round2(expectedArr.reduce((a, b) => a + b, 0) / expectedArr.length);
-  const meanArr = results.map(() => datasetMean);
-
-  const aiMetrics = computeMetrics(expectedArr, aiArr);
-  const flatMetrics = computeMetrics(expectedArr, flatArr);
-  const meanMetrics = computeMetrics(expectedArr, meanArr);
-
+  const ai = metricsFor(results.map((r) => ({ predicted: r.predictedMinutes, range: r.expectedRange })));
+  const flat = metricsFor(results.map((r) => ({ predicted: flatBaseline, range: r.expectedRange })));
   const aiOnlyResults = results.filter((r) => r.source === "ai");
-  const aiOnlyMetrics = computeMetrics(
-    aiOnlyResults.map((r) => r.expectedMinutes),
-    aiOnlyResults.map((r) => r.predictedMinutes),
+  const aiOnly = metricsFor(aiOnlyResults.map((r) => ({ predicted: r.predictedMinutes, range: r.expectedRange })));
+
+  // Held-out subset: the 7 cases that duplicated the OLD prompt anchors
+  // (KF-01, 02, 07, 13, 14, 19, 22) reported separately for continuity.
+  const formerOverlapIds = new Set(["KF-01", "KF-02", "KF-07", "KF-13", "KF-14", "KF-19", "KF-22"]);
+  const formerOverlap = metricsFor(
+    results.filter((r) => formerOverlapIds.has(r.id)).map((r) => ({ predicted: r.predictedMinutes, range: r.expectedRange })),
+  );
+  const others = metricsFor(
+    results.filter((r) => !formerOverlapIds.has(r.id)).map((r) => ({ predicted: r.predictedMinutes, range: r.expectedRange })),
   );
 
-  const maeImprovementVsFlatPct =
-    flatMetrics.mae > 0 ? round2(((flatMetrics.mae - aiMetrics.mae) / flatMetrics.mae) * 100) : 0;
+  const tiers: Tier[] = ["short", "mild", "moderate", "complex"];
+  const tierBreakdown = tiers.map((tier) => {
+    const subset = results.filter((r) => r.tier === tier);
+    const m = metricsFor(subset.map((r) => ({ predicted: r.predictedMinutes, range: r.expectedRange })));
+    const f = metricsFor(subset.map((r) => ({ predicted: flatBaseline, range: r.expectedRange })));
+    return {
+      tier,
+      range: subset[0]?.expectedRange ?? null,
+      count: subset.length,
+      predictions: subset.map((r) => r.predictedMinutes),
+      ai: m,
+      flatBaseline: f,
+    };
+  });
 
   const latencies = results.map((r) => r.latencyMs);
   const aiLatencies = aiOnlyResults.map((r) => r.latencyMs);
   const safetyFlags = results.filter((r) => r.safetyFlag !== null);
 
-  const tiers: Tier[] = ["short", "mild", "moderate", "complex"];
-  const tierBreakdown = tiers.map((tier) => {
-    const subset = results.filter((r) => r.tier === tier);
-    const metrics = computeMetrics(
-      subset.map((r) => r.expectedMinutes),
-      subset.map((r) => r.predictedMinutes),
-    );
-    const avgExpected =
-      subset.length > 0
-        ? round2(subset.reduce((sum, r) => sum + r.expectedMinutes, 0) / subset.length)
-        : 0;
-    const avgPredicted =
-      subset.length > 0
-        ? round2(subset.reduce((sum, r) => sum + r.predictedMinutes, 0) / subset.length)
-        : 0;
-    return {
-      tier,
-      count: subset.length,
-      avgExpected,
-      avgPredicted,
-      mae: metrics.mae,
-      within3Pct: metrics.within3Pct,
-    };
-  });
-
-  console.log("\n=== Aggregate Comparison ===");
-  console.log(
-    `AI Estimator (all ${results.length}):    MAE=${aiMetrics.mae}m | RMSE=${aiMetrics.rmse}m | <=3m=${aiMetrics.within3Pct}% | <=5m=${aiMetrics.within5Pct}%`,
-  );
-  if (aiOnlyResults.length > 0 && aiOnlyResults.length < results.length) {
-    console.log(
-      `AI Estimator (AI-only ${aiOnlyResults.length}): MAE=${aiOnlyMetrics.mae}m | RMSE=${aiOnlyMetrics.rmse}m | <=3m=${aiOnlyMetrics.within3Pct}% | <=5m=${aiOnlyMetrics.within5Pct}%`,
-    );
+  console.log("\n=== Aggregate (consultation minutes vs the doctor's ranges) ===");
+  console.log(`AI estimator:      in range ${ai.inRangeCount}/${ai.n} (${ai.inRangePct}%) | MAE vs midpoint ${ai.maeMidpoint}m | under ${ai.under}, over ${ai.over}`);
+  if (aiOnly.n !== ai.n) {
+    console.log(`AI (AI-only ${aiOnly.n}):   in range ${aiOnly.inRangeCount}/${aiOnly.n} (${aiOnly.inRangePct}%) | MAE vs midpoint ${aiOnly.maeMidpoint}m`);
   }
-  console.log(
-    `Flat Baseline (${flatBaseline}m):       MAE=${flatMetrics.mae}m | RMSE=${flatMetrics.rmse}m | <=3m=${flatMetrics.within3Pct}% | <=5m=${flatMetrics.within5Pct}%`,
-  );
-  console.log(
-    `Dataset Mean (${datasetMean}m):    MAE=${meanMetrics.mae}m | RMSE=${meanMetrics.rmse}m | <=3m=${meanMetrics.within3Pct}% | <=5m=${meanMetrics.within5Pct}%`,
-  );
-  console.log(`MAE Improvement vs Flat ${flatBaseline}m: ${maeImprovementVsFlatPct}%`);
+  console.log(`Flat ${flatBaseline} min:        in range ${flat.inRangeCount}/${flat.n} (${flat.inRangePct}%) | MAE vs midpoint ${flat.maeMidpoint}m`);
+  console.log(`Former-overlap 7:  in range ${formerOverlap.inRangeCount}/${formerOverlap.n} | MAE ${formerOverlap.maeMidpoint}m  (other ${others.n}: in range ${others.inRangeCount}/${others.n}, MAE ${others.maeMidpoint}m)`);
 
-  console.log("\n=== Per-Tier Breakdown ===");
+  console.log("\n=== Per tier ===");
   for (const row of tierBreakdown) {
     console.log(
-      `${row.tier.padEnd(8)} (n=${row.count}): avgExpected=${row.avgExpected}m | avgPredicted=${row.avgPredicted}m | MAE=${row.mae}m | <=3m=${row.within3Pct}%`,
+      `${row.tier.padEnd(8)} ${JSON.stringify(row.range).padEnd(7)} n=${row.count}: AI in range ${row.ai.inRangeCount}/${row.count}, MAE ${row.ai.maeMidpoint}m, predictions ${JSON.stringify(row.predictions)} | flat ${flatBaseline}: in range ${row.flatBaseline.inRangeCount}/${row.count}, MAE ${row.flatBaseline.maeMidpoint}m`,
     );
   }
 
-  console.log("\n=== Reliability, Latency & Safety ===");
-  console.log(
-    `AI responses: ${aiOnlyResults.length}/${results.length} (${round2((aiOnlyResults.length / results.length) * 100)}%) | Fallbacks: ${results.length - aiOnlyResults.length}/${results.length}`,
-  );
+  console.log("\n=== Reliability, latency, safety ===");
+  console.log(`AI responses: ${aiOnlyResults.length}/${results.length} | Fallbacks: ${results.length - aiOnlyResults.length}/${results.length}`);
   console.log(
     `Latency (all): mean=${round2(latencies.reduce((a, b) => a + b, 0) / latencies.length)}ms | p50=${percentile(latencies, 50)}ms | p95=${percentile(latencies, 95)}ms`,
   );
-  if (aiLatencies.length > 0) {
-    console.log(
-      `Latency (AI):  mean=${round2(aiLatencies.reduce((a, b) => a + b, 0) / aiLatencies.length)}ms | p50=${percentile(aiLatencies, 50)}ms | p95=${percentile(aiLatencies, 95)}ms`,
-    );
-  }
   console.log(`Non-diagnostic safety flags: ${safetyFlags.length}/${results.length}`);
 
   const report = {
@@ -327,15 +341,22 @@ async function main(): Promise<void> {
       model: modelLabel,
       timeoutMs: timeoutLabel,
       flatBaselineMinutes: flatBaseline,
-      datasetMeanMinutes: datasetMean,
       casesEvaluated: results.length,
+      note: "Consultation minutes only (the queue adds QUEUE_CHANGEOVER_MINUTES on top). MAE is measured against the midpoint of each doctor range.",
+    },
+    anchorOverlap: {
+      method: "Jaccard similarity of complaint words (stopwords removed) between each eval case and each prompt anchor",
+      limit: OVERLAP_LIMIT,
+      maxOverlap: Math.max(...overlapRows.map((r) => r.maxOverlap)),
+      casesOverLimit: overlapping,
+      perCase: overlapRows,
     },
     summary: {
-      aiAll: aiMetrics,
-      aiOnly: aiOnlyMetrics,
-      flatBaseline: flatMetrics,
-      datasetMeanBaseline: meanMetrics,
-      maeImprovementVsFlatPct,
+      ai,
+      aiOnly,
+      flatBaseline: flat,
+      formerOverlapCases: { ids: [...formerOverlapIds], ...formerOverlap },
+      otherCases: others,
       aiSuccessCount: aiOnlyResults.length,
       fallbackCount: results.length - aiOnlyResults.length,
       latencyAllMs: {
@@ -360,6 +381,10 @@ async function main(): Promise<void> {
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   fs.writeFileSync(outPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
   console.log(`\nSaved JSON report to ${path.relative(process.cwd(), outPath)}`);
+  if (overlapping.length > 0) {
+    console.log(`WARNING: ${overlapping.length} eval case(s) resemble a prompt anchor (>= ${OVERLAP_LIMIT}).`);
+    process.exitCode = 1;
+  }
 }
 
 void main();

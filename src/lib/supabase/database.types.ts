@@ -221,9 +221,12 @@ export type Database = {
           doctor_id: string
           ended_at: string | null
           estimated_call_at: string | null
+          has_chronic_condition: boolean | null
           id: string
           is_follow_up: boolean
+          is_new_patient: boolean | null
           missed_turn_at: string | null
+          patient_age_years: number | null
           patient_id: string
           position: number
           predicted_minutes: number | null
@@ -237,6 +240,9 @@ export type Database = {
           status: Database["public"]["Enums"]["ticket_status"]
           ticket_number: number
           updated_at: string
+          visit_purpose:
+            | Database["public"]["Enums"]["visit_purpose"]
+            | null
         }
         Insert: {
           actual_minutes?: number | null
@@ -251,9 +257,12 @@ export type Database = {
           doctor_id: string
           ended_at?: string | null
           estimated_call_at?: string | null
+          has_chronic_condition?: boolean | null
           id?: string
           is_follow_up?: boolean
+          is_new_patient?: boolean | null
           missed_turn_at?: string | null
+          patient_age_years?: number | null
           patient_id: string
           position: number
           predicted_minutes?: number | null
@@ -267,6 +276,9 @@ export type Database = {
           status?: Database["public"]["Enums"]["ticket_status"]
           ticket_number: number
           updated_at?: string
+          visit_purpose?:
+            | Database["public"]["Enums"]["visit_purpose"]
+            | null
         }
         Update: {
           actual_minutes?: number | null
@@ -281,9 +293,12 @@ export type Database = {
           doctor_id?: string
           ended_at?: string | null
           estimated_call_at?: string | null
+          has_chronic_condition?: boolean | null
           id?: string
           is_follow_up?: boolean
+          is_new_patient?: boolean | null
           missed_turn_at?: string | null
+          patient_age_years?: number | null
           patient_id?: string
           position?: number
           predicted_minutes?: number | null
@@ -297,6 +312,9 @@ export type Database = {
           status?: Database["public"]["Enums"]["ticket_status"]
           ticket_number?: number
           updated_at?: string
+          visit_purpose?:
+            | Database["public"]["Enums"]["visit_purpose"]
+            | null
         }
         Relationships: [
           {
@@ -344,9 +362,12 @@ export type Database = {
           doctor_id: string
           ended_at: string | null
           estimated_call_at: string | null
+          has_chronic_condition: boolean | null
           id: string
           is_follow_up: boolean
+          is_new_patient: boolean | null
           missed_turn_at: string | null
+          patient_age_years: number | null
           patient_id: string
           position: number
           predicted_minutes: number | null
@@ -360,6 +381,9 @@ export type Database = {
           status: Database["public"]["Enums"]["ticket_status"]
           ticket_number: number
           updated_at: string
+          visit_purpose:
+            | Database["public"]["Enums"]["visit_purpose"]
+            | null
         }
         SetofOptions: {
           from: "*"
@@ -383,9 +407,12 @@ export type Database = {
           doctor_id: string
           ended_at: string | null
           estimated_call_at: string | null
+          has_chronic_condition: boolean | null
           id: string
           is_follow_up: boolean
+          is_new_patient: boolean | null
           missed_turn_at: string | null
+          patient_age_years: number | null
           patient_id: string
           position: number
           predicted_minutes: number | null
@@ -399,6 +426,9 @@ export type Database = {
           status: Database["public"]["Enums"]["ticket_status"]
           ticket_number: number
           updated_at: string
+          visit_purpose:
+            | Database["public"]["Enums"]["visit_purpose"]
+            | null
         }
         SetofOptions: {
           from: "*"
@@ -422,9 +452,12 @@ export type Database = {
           doctor_id: string
           ended_at: string | null
           estimated_call_at: string | null
+          has_chronic_condition: boolean | null
           id: string
           is_follow_up: boolean
+          is_new_patient: boolean | null
           missed_turn_at: string | null
+          patient_age_years: number | null
           patient_id: string
           position: number
           predicted_minutes: number | null
@@ -438,6 +471,9 @@ export type Database = {
           status: Database["public"]["Enums"]["ticket_status"]
           ticket_number: number
           updated_at: string
+          visit_purpose:
+            | Database["public"]["Enums"]["visit_purpose"]
+            | null
         }
         SetofOptions: {
           from: "*"
@@ -453,6 +489,10 @@ export type Database = {
           p_complaint: string
           p_doctor_id: string
           p_is_follow_up?: boolean
+          p_has_chronic_condition?: boolean
+          p_is_new_patient?: boolean
+          p_patient_age_years?: number
+          p_visit_purpose?: Database["public"]["Enums"]["visit_purpose"]
           p_patient_id: string
           p_predicted_minutes?: number
           p_prediction_confidence?: number
@@ -473,9 +513,12 @@ export type Database = {
           doctor_id: string
           ended_at: string | null
           estimated_call_at: string | null
+          has_chronic_condition: boolean | null
           id: string
           is_follow_up: boolean
+          is_new_patient: boolean | null
           missed_turn_at: string | null
+          patient_age_years: number | null
           patient_id: string
           position: number
           predicted_minutes: number | null
@@ -489,6 +532,9 @@ export type Database = {
           status: Database["public"]["Enums"]["ticket_status"]
           ticket_number: number
           updated_at: string
+          visit_purpose:
+            | Database["public"]["Enums"]["visit_purpose"]
+            | null
         }
         SetofOptions: {
           from: "*"
@@ -512,9 +558,12 @@ export type Database = {
           doctor_id: string
           ended_at: string | null
           estimated_call_at: string | null
+          has_chronic_condition: boolean | null
           id: string
           is_follow_up: boolean
+          is_new_patient: boolean | null
           missed_turn_at: string | null
+          patient_age_years: number | null
           patient_id: string
           position: number
           predicted_minutes: number | null
@@ -528,6 +577,9 @@ export type Database = {
           status: Database["public"]["Enums"]["ticket_status"]
           ticket_number: number
           updated_at: string
+          visit_purpose:
+            | Database["public"]["Enums"]["visit_purpose"]
+            | null
         }
         SetofOptions: {
           from: "*"
@@ -551,9 +603,12 @@ export type Database = {
           doctor_id: string
           ended_at: string | null
           estimated_call_at: string | null
+          has_chronic_condition: boolean | null
           id: string
           is_follow_up: boolean
+          is_new_patient: boolean | null
           missed_turn_at: string | null
+          patient_age_years: number | null
           patient_id: string
           position: number
           predicted_minutes: number | null
@@ -567,6 +622,9 @@ export type Database = {
           status: Database["public"]["Enums"]["ticket_status"]
           ticket_number: number
           updated_at: string
+          visit_purpose:
+            | Database["public"]["Enums"]["visit_purpose"]
+            | null
         }
         SetofOptions: {
           from: "*"
@@ -590,9 +648,12 @@ export type Database = {
           doctor_id: string
           ended_at: string | null
           estimated_call_at: string | null
+          has_chronic_condition: boolean | null
           id: string
           is_follow_up: boolean
+          is_new_patient: boolean | null
           missed_turn_at: string | null
+          patient_age_years: number | null
           patient_id: string
           position: number
           predicted_minutes: number | null
@@ -606,6 +667,9 @@ export type Database = {
           status: Database["public"]["Enums"]["ticket_status"]
           ticket_number: number
           updated_at: string
+          visit_purpose:
+            | Database["public"]["Enums"]["visit_purpose"]
+            | null
         }
         SetofOptions: {
           from: "*"
@@ -648,6 +712,12 @@ export type Database = {
         | "done"
         | "cancelled"
         | "no_show"
+      visit_purpose:
+        | "new_complaint"
+        | "follow_up"
+        | "routine_check"
+        | "certificate"
+        | "procedure"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -800,6 +870,13 @@ export const Constants = {
         "done",
         "cancelled",
         "no_show",
+      ],
+      visit_purpose: [
+        "new_complaint",
+        "follow_up",
+        "routine_check",
+        "certificate",
+        "procedure",
       ],
     },
   },

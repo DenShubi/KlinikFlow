@@ -1,24 +1,34 @@
 import { GoogleGenAI, ThinkingLevel, Type, type ThinkingConfig } from "@google/genai";
 
+// Why the patient is coming. Chosen on the intake form; never free text.
+export const VISIT_PURPOSES = ["new_complaint", "follow_up", "routine_check", "certificate", "procedure"] as const;
+export type VisitPurpose = (typeof VISIT_PURPOSES)[number];
+
 export type EstimateInput = {
   ticketId: string; // server-side internal only; NEVER send to Gemini
   complaint: string; // free text from intake, Indonesian or English
   patientAgeYears?: number;
-  isFollowUp?: boolean;
+  isFollowUp?: boolean; // legacy flag; derived from visitPurpose when that is given
+  visitPurpose?: VisitPurpose;
+  isNewPatient?: boolean; // first visit to this doctor
+  hasChronicCondition?: boolean; // e.g. hypertension, diabetes (only the yes/no goes to the model)
   doctorId?: string; // reserved for future calibration; NEVER send to Gemini
 };
 
 export type EstimateOutput = {
-  minutes: number; // integer clamped strictly to 5..25
+  minutes: number; // consultation minutes, integer clamped to 2..30 (changeover is added by the queue)
   source: "ai" | "fallback";
   confidence?: number; // 0..1
   summary?: string; // concise non-diagnostic summary for doctor card
   model?: string; // Gemini model id used
 };
 
-const MIN_MINUTES = 5;
-const MAX_MINUTES = 25;
-const DEFAULT_FALLBACK_MINUTES = 10;
+// Bounds follow the practising doctor's tiers (routine 1-2, mild 2-3,
+// moderate 5-20, complex/procedure 10-30 minutes). The lower bound is 2
+// because a slot shorter than that is not useful for queue planning.
+export const MIN_MINUTES = 2;
+export const MAX_MINUTES = 30;
+export const DEFAULT_FALLBACK_MINUTES = 5;
 const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite";
 const DEFAULT_TIMEOUT_MS = 4000;
 const MIN_TIMEOUT_MS = 1000;
@@ -48,33 +58,81 @@ function getTimeoutMs(): number {
   return Math.min(MAX_TIMEOUT_MS, Math.max(MIN_TIMEOUT_MS, parsed));
 }
 
+type PromptPayload = {
+  complaint: string;
+  patientAgeYears?: number;
+  isFollowUp?: boolean;
+  visitPurpose?: VisitPurpose;
+  isNewPatient?: boolean;
+  hasChronicCondition?: boolean;
+};
+
+// Few-shot anchors, one or two per tier of the doctor's guidance. They are
+// written so that none of them resembles a case in data/eval-complaints.json
+// (scripts/eval-estimate.ts checks the word overlap on every run).
+export const FEW_SHOT_EXAMPLES: Array<{ input: PromptPayload; output: { minutes: number; confidence: number; summary: string } }> = [
+  {
+    input: { complaint: "Kontrol rutin asam urat, obat masih diminum, tidak ada keluhan", patientAgeYears: 60, visitPurpose: "routine_check", isFollowUp: false, isNewPatient: false, hasChronicCondition: true },
+    output: { minutes: 2, confidence: 0.9, summary: "Kontrol rutin asam urat dengan pengobatan berjalan dan tanpa keluhan baru." },
+  },
+  {
+    input: { complaint: "Minta surat rujukan ke poli mata untuk periksa kacamata", patientAgeYears: 33, visitPurpose: "certificate", isFollowUp: false, isNewPatient: false },
+    output: { minutes: 2, confidence: 0.88, summary: "Pasien meminta surat rujukan ke poli mata untuk pemeriksaan kacamata." },
+  },
+  {
+    input: { complaint: "Sariawan di bibir bawah sejak 3 hari, perih saat makan", patientAgeYears: 27, visitPurpose: "new_complaint", isFollowUp: false, isNewPatient: false },
+    output: { minutes: 3, confidence: 0.85, summary: "Pasien mengeluhkan sariawan di bibir bawah sejak 3 hari yang terasa perih saat makan." },
+  },
+  {
+    input: { complaint: "Kepala pusing, pegal di bahu, dan susah tidur sejak seminggu", patientAgeYears: 44, visitPurpose: "new_complaint", isFollowUp: false, isNewPatient: true },
+    output: { minutes: 7, confidence: 0.75, summary: "Pasien baru dengan tiga keluhan: pusing, pegal di bahu, dan sulit tidur sejak seminggu." },
+  },
+  {
+    input: { complaint: "Muntah terus sejak subuh, tidak bisa minum, badan sangat lemas", patientAgeYears: 36, visitPurpose: "new_complaint", isFollowUp: false, isNewPatient: false },
+    output: { minutes: 18, confidence: 0.75, summary: "Pasien muntah berulang sejak subuh, tidak bisa minum, dan merasa sangat lemas." },
+  },
+  {
+    input: { complaint: "Telinga kiri sakit dan keluar cairan sejak kemarin, rewel terus", patientAgeYears: 2, visitPurpose: "new_complaint", isFollowUp: false, isNewPatient: true },
+    output: { minutes: 20, confidence: 0.72, summary: "Balita usia 2 tahun dengan nyeri telinga kiri dan keluar cairan sejak kemarin, rewel." },
+  },
+  {
+    input: { complaint: "Cabut jahitan bekas operasi usus buntu", patientAgeYears: 31, visitPurpose: "procedure", isFollowUp: false, isNewPatient: false },
+    output: { minutes: 12, confidence: 0.82, summary: "Tindakan pelepasan jahitan bekas operasi usus buntu." },
+  },
+  {
+    input: { complaint: "Kaki bengkak dan sesak saat berbaring, punya sakit jantung dan ginjal", patientAgeYears: 76, visitPurpose: "new_complaint", isFollowUp: false, isNewPatient: false, hasChronicCondition: true },
+    output: { minutes: 25, confidence: 0.78, summary: "Pasien lansia 76 tahun dengan kaki bengkak dan sesak saat berbaring, memiliki penyakit jantung dan ginjal." },
+  },
+];
+
 const SYSTEM_INSTRUCTION = [
-  "You are a primary clinic triage duration estimator for local Indonesian general practice clinics.",
-  "You understand both Indonesian and English patient intake complaints.",
+  "You estimate how long a general practitioner in a small Indonesian clinic needs for one patient.",
+  "You understand both Indonesian and English intake complaints.",
   "Your job is to:",
-  "1. Estimate a realistic GP consultation duration in whole minutes between 5 and 25 (including ~2 minutes of room-turnover margin for entering, seating, and prescription notes).",
-  "2. Write a concise 1-2 sentence neutral symptom summary for the doctor's card.",
+  `1. Estimate the doctor's consultation time in whole minutes between ${MIN_MINUTES} and ${MAX_MINUTES}. Do NOT add time for patients changing rooms; the clinic adds that separately.`,
+  "2. Write a concise 1-2 sentence neutral summary of the reported complaint for the doctor's card.",
   "3. Provide a confidence score between 0 and 1.",
   "",
-  "CALIBRATION RULES (validated with local Indonesian clinic doctors):",
-  "- Standard local clinic GP exams are typically under 10 minutes of diagnosis plus ~2 minutes of room turnover (around 8-12 minutes total for mild acute visits).",
-  "- Follow-up visits (isFollowUp: true) are noticeably faster (around 5-7 minutes) unless a physical procedure like wound dressing or multi-symptom elderly review is needed.",
-  "- You may output any whole integer from 5 to 25 (including intermediate values like 7, 13, 16, or 21) when a complaint falls between reference examples.",
+  "DURATION TIERS (from a practising GP in Kediri):",
+  "- Routine (blood pressure check, stable medication control, routine labs, certificates or referrals): 1-2 minutes; answer 2.",
+  "- Mild (mild cough or cold, fever for 1-2 days, mild gastritis, mild itch, small mouth ulcer): 2-3 minutes.",
+  "- Moderate (high fever more than 3 days with cough or mild breathlessness, child with fever and vomiting, diarrhoea or vomiting with weakness): 5-20 minutes; up to 20 if an IV drip may be needed; toddlers under 5 up to about 30.",
+  "- Complex or procedure (wound care, dressing change, stitches, elderly patient with several chronic complaints, chest pain or severe breathlessness): 10-30 minutes.",
+  "",
+  "ADJUSTMENTS:",
+  "- Count the distinct problems. Symptoms of one illness (for example cough, runny nose and fever of a cold) are ONE problem. Each extra separate problem adds about 2 minutes.",
+  "- Lengthen the estimate for toddlers (under 5 years), the elderly (65 and older), hasChronicCondition true, and procedures (visitPurpose procedure).",
+  "- A new patient (isNewPatient true) needs about 1 minute more than a returning patient, but stay inside the tier.",
+  "- visitPurpose routine_check or certificate is usually routine; follow_up is usually routine or mild unless the complaint describes a procedure or a worsening problem.",
+  "- When unsure between two values, choose the LOWER one. Overestimating makes patients waiting at home arrive late and miss their turn.",
   "",
   "STRICT SAFETY RULES:",
   "- NEVER diagnose diseases, name suspected conditions, or recommend medications/treatments.",
   "- Keep the summary strictly factual and descriptive of the patient's reported complaint.",
   "- Respond ONLY with JSON matching the requested schema.",
   "",
-  "CALIBRATION EXAMPLES (observed local clinic durations):",
-  '- Input: {"complaint":"Minta surat keterangan sehat untuk melamar kerja","isFollowUp":false} -> {"minutes":5,"confidence":0.92,"summary":"Pasien meminta surat keterangan sehat untuk keperluan melamar kerja tanpa keluhan akut."}',
-  '- Input: {"complaint":"Cek tensi rutin dan kontrol singkat","isFollowUp":true} -> {"minutes":5,"confidence":0.9,"summary":"Kunjungan kontrol singkat untuk pemeriksaan tekanan darah rutin."}',
-  '- Input: {"complaint":"Batuk pilek ringan sejak kemarin, tidak sesak","patientAgeYears":24,"isFollowUp":false} -> {"minutes":10,"confidence":0.85,"summary":"Pasien usia 24 tahun mengeluhkan batuk dan pilek ringan sejak 1 hari lalu tanpa sesak napas."}',
-  '- Input: {"complaint":"Demam 2 hari dan sakit perut ringan","patientAgeYears":30,"isFollowUp":false} -> {"minutes":12,"confidence":0.82,"summary":"Pasien usia 30 tahun melaporkan demam selama 2 hari disertai keluhan sakit perut ringan."}',
-  '- Input: {"complaint":"Demam tinggi sudah 4 hari disertai batuk dan agak sesak","patientAgeYears":35,"isFollowUp":false} -> {"minutes":18,"confidence":0.8,"summary":"Pasien usia 35 tahun mengalami demam tinggi lebih dari 3 hari disertai batuk dan keluhan napas terasa sesak."}',
-  '- Input: {"complaint":"Anak demam sejak kemarin disertai muntah beberapa kali","patientAgeYears":6,"isFollowUp":false} -> {"minutes":18,"confidence":0.82,"summary":"Pasien anak usia 6 tahun dilaporkan mengalami demam sejak kemarin disertai muntah berulang."}',
-  '- Input: {"complaint":"Perawatan luka pasca kecelakaan dan ganti perban di kaki","patientAgeYears":42,"isFollowUp":true} -> {"minutes":22,"confidence":0.86,"summary":"Kunjungan kontrol pasien usia 42 tahun untuk perawatan luka di kaki dan penggantian perban."}',
-  '- Input: {"complaint":"Nyeri dada sejak pagi disertai sesak napas berat dan pusing","patientAgeYears":58,"isFollowUp":false} -> {"minutes":25,"confidence":0.88,"summary":"Pasien usia 58 tahun mengeluhkan nyeri dada sejak pagi disertai sesak napas berat dan pusing."}',
+  "EXAMPLES:",
+  ...FEW_SHOT_EXAMPLES.map((e) => `- Input: ${JSON.stringify(e.input)} -> ${JSON.stringify(e.output)}`),
 ].join("\n");
 
 const RESPONSE_JSON_SCHEMA = {
@@ -82,7 +140,7 @@ const RESPONSE_JSON_SCHEMA = {
   properties: {
     minutes: {
       type: Type.INTEGER,
-      description: "Estimated GP consultation duration in minutes, integer from 5 to 25.",
+      description: `Doctor's consultation time in minutes, integer from ${MIN_MINUTES} to ${MAX_MINUTES}, without patient changeover.`,
     },
     confidence: {
       type: Type.NUMBER,
@@ -106,7 +164,8 @@ function clampConfidence(value: number): number {
   return Math.min(1, Math.max(0, value));
 }
 
-function getFallbackMinutes(): number {
+// Consultation minutes used when the AI is unavailable (env QUEUE_FALLBACK_CONSULT_MINUTES, default 5).
+export function getFallbackMinutes(): number {
   const raw = process.env.QUEUE_FALLBACK_CONSULT_MINUTES;
   if (!raw) {
     return DEFAULT_FALLBACK_MINUTES;
@@ -147,27 +206,40 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function isVisitPurpose(value: unknown): value is VisitPurpose {
+  return typeof value === "string" && (VISIT_PURPOSES as readonly string[]).includes(value);
+}
+
 export function buildSanitizedPromptPayload(input: EstimateInput): string {
-  // Privacy guard: ONLY forward complaint, isFollowUp, and patientAgeYears.
-  // Never include ticketId, doctorId, or any PII.
-  const payload: {
-    complaint: string;
-    patientAgeYears?: number;
-    isFollowUp?: boolean;
-  } = {
+  // Privacy guard: ONLY forward the complaint and these coarse, non-identifying
+  // fields. Never include ticketId, doctorId, a name, phone number or birth date.
+  const payload: PromptPayload = {
     complaint: input.complaint.trim(),
   };
 
   if (
     typeof input.patientAgeYears === "number" &&
     Number.isFinite(input.patientAgeYears) &&
-    input.patientAgeYears >= 0
+    input.patientAgeYears >= 0 &&
+    input.patientAgeYears <= 120
   ) {
     payload.patientAgeYears = Math.round(input.patientAgeYears);
   }
 
-  if (typeof input.isFollowUp === "boolean") {
+  if (isVisitPurpose(input.visitPurpose)) {
+    payload.visitPurpose = input.visitPurpose;
+    // Backward compatibility: isFollowUp follows from the visit purpose.
+    payload.isFollowUp = input.visitPurpose === "follow_up";
+  } else if (typeof input.isFollowUp === "boolean") {
     payload.isFollowUp = input.isFollowUp;
+  }
+
+  if (typeof input.isNewPatient === "boolean") {
+    payload.isNewPatient = input.isNewPatient;
+  }
+
+  if (typeof input.hasChronicCondition === "boolean") {
+    payload.hasChronicCondition = input.hasChronicCondition;
   }
 
   return JSON.stringify(payload);
@@ -237,12 +309,7 @@ export async function estimateConsultation(input: EstimateInput): Promise<Estima
 
   try {
     const ai = getClient(apiKey);
-    const promptPayload = buildSanitizedPromptPayload({
-      ticketId: "",
-      complaint: trimmedComplaint,
-      patientAgeYears: input.patientAgeYears,
-      isFollowUp: input.isFollowUp,
-    });
+    const promptPayload = buildSanitizedPromptPayload({ ...input, ticketId: "", doctorId: undefined, complaint: trimmedComplaint });
 
     const timeoutPromise = new Promise<never>((_, reject) => {
       timeoutHandle = setTimeout(() => {

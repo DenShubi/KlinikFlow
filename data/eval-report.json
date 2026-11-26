@@ -1,429 +1,870 @@
 {
-  "generatedAt": "2026-11-20T09:52:06.782Z",
+  "generatedAt": "2026-11-26T12:00:22.193Z",
   "dataset": {
     "name": "KlinikFlow Synthetic Triage Evaluation Set",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "synthetic": true,
-    "source": "Synthetic complaints modeled on November 2026 observations of evening GP sessions in Kediri, East Java (5 to 25 minute consultation range). Contains zero real patient data.",
-    "flatBaselineMinutes": 10
+    "source": "Synthetic complaints modeled on November 2026 observations of evening GP sessions in Kediri, East Java. Contains zero real patient data.",
+    "referenceRanges": "expectedRange comes from a practising GP: routine 1-2 min, mild 2-3 min, moderate 5-20 min (up to 20 with an IV, toddlers under 5 up to about 30), complex or procedure 10-30 min. These are consultation minutes, without patient changeover.",
+    "flatBaselineMinutes": 5
   },
   "config": {
     "model": "gemini-3.5-flash-lite",
     "timeoutMs": "8000",
-    "flatBaselineMinutes": 10,
-    "datasetMeanMinutes": 14.25,
-    "casesEvaluated": 24
+    "flatBaselineMinutes": 5,
+    "casesEvaluated": 24,
+    "note": "Consultation minutes only (the queue adds QUEUE_CHANGEOVER_MINUTES on top). MAE is measured against the midpoint of each doctor range."
+  },
+  "anchorOverlap": {
+    "method": "Jaccard similarity of complaint words (stopwords removed) between each eval case and each prompt anchor",
+    "limit": 0.4,
+    "maxOverlap": 0.23,
+    "casesOverLimit": [],
+    "perCase": [
+      {
+        "id": "KF-01",
+        "maxOverlap": 0.17,
+        "closestAnchor": "Minta surat rujukan ke poli mata untuk periksa kacamata"
+      },
+      {
+        "id": "KF-02",
+        "maxOverlap": 0.23,
+        "closestAnchor": "Kontrol rutin asam urat, obat masih diminum, tidak ada keluhan"
+      },
+      {
+        "id": "KF-03",
+        "maxOverlap": 0.06,
+        "closestAnchor": "Kontrol rutin asam urat, obat masih diminum, tidak ada keluhan"
+      },
+      {
+        "id": "KF-04",
+        "maxOverlap": 0.08,
+        "closestAnchor": "Sariawan di bibir bawah sejak 3 hari, perih saat makan"
+      },
+      {
+        "id": "KF-05",
+        "maxOverlap": 0,
+        "closestAnchor": ""
+      },
+      {
+        "id": "KF-06",
+        "maxOverlap": 0.14,
+        "closestAnchor": "Kontrol rutin asam urat, obat masih diminum, tidak ada keluhan"
+      },
+      {
+        "id": "KF-07",
+        "maxOverlap": 0.07,
+        "closestAnchor": "Telinga kiri sakit dan keluar cairan sejak kemarin, rewel terus"
+      },
+      {
+        "id": "KF-08",
+        "maxOverlap": 0.17,
+        "closestAnchor": "Kepala pusing, pegal di bahu, dan susah tidur sejak seminggu"
+      },
+      {
+        "id": "KF-09",
+        "maxOverlap": 0.15,
+        "closestAnchor": "Sariawan di bibir bawah sejak 3 hari, perih saat makan"
+      },
+      {
+        "id": "KF-10",
+        "maxOverlap": 0.07,
+        "closestAnchor": "Sariawan di bibir bawah sejak 3 hari, perih saat makan"
+      },
+      {
+        "id": "KF-11",
+        "maxOverlap": 0.18,
+        "closestAnchor": "Sariawan di bibir bawah sejak 3 hari, perih saat makan"
+      },
+      {
+        "id": "KF-12",
+        "maxOverlap": 0,
+        "closestAnchor": ""
+      },
+      {
+        "id": "KF-13",
+        "maxOverlap": 0.07,
+        "closestAnchor": "Sariawan di bibir bawah sejak 3 hari, perih saat makan"
+      },
+      {
+        "id": "KF-14",
+        "maxOverlap": 0.13,
+        "closestAnchor": "Muntah terus sejak subuh, tidak bisa minum, badan sangat lemas"
+      },
+      {
+        "id": "KF-15",
+        "maxOverlap": 0.13,
+        "closestAnchor": "Muntah terus sejak subuh, tidak bisa minum, badan sangat lemas"
+      },
+      {
+        "id": "KF-16",
+        "maxOverlap": 0.15,
+        "closestAnchor": "Kepala pusing, pegal di bahu, dan susah tidur sejak seminggu"
+      },
+      {
+        "id": "KF-17",
+        "maxOverlap": 0.14,
+        "closestAnchor": "Sariawan di bibir bawah sejak 3 hari, perih saat makan"
+      },
+      {
+        "id": "KF-18",
+        "maxOverlap": 0.07,
+        "closestAnchor": "Sariawan di bibir bawah sejak 3 hari, perih saat makan"
+      },
+      {
+        "id": "KF-19",
+        "maxOverlap": 0,
+        "closestAnchor": ""
+      },
+      {
+        "id": "KF-20",
+        "maxOverlap": 0,
+        "closestAnchor": ""
+      },
+      {
+        "id": "KF-21",
+        "maxOverlap": 0.16,
+        "closestAnchor": "Kepala pusing, pegal di bahu, dan susah tidur sejak seminggu"
+      },
+      {
+        "id": "KF-22",
+        "maxOverlap": 0.06,
+        "closestAnchor": "Kepala pusing, pegal di bahu, dan susah tidur sejak seminggu"
+      },
+      {
+        "id": "KF-23",
+        "maxOverlap": 0.06,
+        "closestAnchor": "Kaki bengkak dan sesak saat berbaring, punya sakit jantung dan ginjal"
+      },
+      {
+        "id": "KF-24",
+        "maxOverlap": 0.18,
+        "closestAnchor": "Kaki bengkak dan sesak saat berbaring, punya sakit jantung dan ginjal"
+      }
+    ]
   },
   "summary": {
-    "aiAll": {
-      "mae": 1.29,
-      "rmse": 1.88,
-      "within3Pct": 91.67,
-      "within5Pct": 100
+    "ai": {
+      "n": 24,
+      "inRangePct": 91.67,
+      "inRangeCount": 22,
+      "maeMidpoint": 1.58,
+      "under": 0,
+      "over": 2
     },
     "aiOnly": {
-      "mae": 1.29,
-      "rmse": 1.88,
-      "within3Pct": 91.67,
-      "within5Pct": 100
+      "n": 24,
+      "inRangePct": 91.67,
+      "inRangeCount": 22,
+      "maeMidpoint": 1.58,
+      "under": 0,
+      "over": 2
     },
     "flatBaseline": {
-      "mae": 6.58,
-      "rmse": 8.22,
-      "within3Pct": 25,
-      "within5Pct": 50
+      "n": 24,
+      "inRangePct": 25,
+      "inRangeCount": 6,
+      "maeMidpoint": 7.13,
+      "under": 6,
+      "over": 12
     },
-    "datasetMeanBaseline": {
-      "mae": 6.33,
-      "rmse": 7.04,
-      "within3Pct": 16.67,
-      "within5Pct": 50
+    "formerOverlapCases": {
+      "ids": [
+        "KF-01",
+        "KF-02",
+        "KF-07",
+        "KF-13",
+        "KF-14",
+        "KF-19",
+        "KF-22"
+      ],
+      "n": 7,
+      "inRangePct": 100,
+      "inRangeCount": 7,
+      "maeMidpoint": 2.07,
+      "under": 0,
+      "over": 0
     },
-    "maeImprovementVsFlatPct": 80.4,
+    "otherCases": {
+      "n": 17,
+      "inRangePct": 88.24,
+      "inRangeCount": 15,
+      "maeMidpoint": 1.38,
+      "under": 0,
+      "over": 2
+    },
     "aiSuccessCount": 24,
     "fallbackCount": 0,
     "latencyAllMs": {
-      "mean": 2045,
-      "p50": 1426,
-      "p95": 4800
+      "mean": 3155.92,
+      "p50": 1661,
+      "p95": 6471
     },
     "latencyAiOnlyMs": {
-      "mean": 2045,
-      "p50": 1426,
-      "p95": 4800
+      "mean": 3155.92,
+      "p50": 1661,
+      "p95": 6471
     },
     "safetyFlagCount": 0
   },
   "tierBreakdown": [
     {
       "tier": "short",
+      "range": [
+        1,
+        2
+      ],
       "count": 6,
-      "avgExpected": 5.33,
-      "avgPredicted": 5.33,
-      "mae": 0.33,
-      "within3Pct": 100
+      "predictions": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "ai": {
+        "n": 6,
+        "inRangePct": 100,
+        "inRangeCount": 6,
+        "maeMidpoint": 0.5,
+        "under": 0,
+        "over": 0
+      },
+      "flatBaseline": {
+        "n": 6,
+        "inRangePct": 0,
+        "inRangeCount": 0,
+        "maeMidpoint": 3.5,
+        "under": 0,
+        "over": 6
+      }
     },
     {
       "tier": "mild",
+      "range": [
+        2,
+        3
+      ],
       "count": 6,
-      "avgExpected": 10.5,
-      "avgPredicted": 10,
-      "mae": 0.5,
-      "within3Pct": 100
+      "predictions": [
+        3,
+        5,
+        3,
+        3,
+        3,
+        4
+      ],
+      "ai": {
+        "n": 6,
+        "inRangePct": 66.67,
+        "inRangeCount": 4,
+        "maeMidpoint": 1,
+        "under": 0,
+        "over": 2
+      },
+      "flatBaseline": {
+        "n": 6,
+        "inRangePct": 0,
+        "inRangeCount": 0,
+        "maeMidpoint": 2.5,
+        "under": 0,
+        "over": 6
+      }
     },
     {
       "tier": "moderate",
+      "range": [
+        5,
+        20
+      ],
       "count": 6,
-      "avgExpected": 17.33,
-      "avgPredicted": 18.33,
-      "mae": 1.67,
-      "within3Pct": 100
+      "predictions": [
+        12,
+        15,
+        15,
+        10,
+        7,
+        12
+      ],
+      "ai": {
+        "n": 6,
+        "inRangePct": 100,
+        "inRangeCount": 6,
+        "maeMidpoint": 2.33,
+        "under": 0,
+        "over": 0
+      },
+      "flatBaseline": {
+        "n": 6,
+        "inRangePct": 100,
+        "inRangeCount": 6,
+        "maeMidpoint": 7.5,
+        "under": 0,
+        "over": 0
+      }
     },
     {
       "tier": "complex",
+      "range": [
+        10,
+        30
+      ],
       "count": 6,
-      "avgExpected": 23.83,
-      "avgPredicted": 21.17,
-      "mae": 2.67,
-      "within3Pct": 66.67
+      "predictions": [
+        15,
+        15,
+        20,
+        25,
+        20,
+        20
+      ],
+      "ai": {
+        "n": 6,
+        "inRangePct": 100,
+        "inRangeCount": 6,
+        "maeMidpoint": 2.5,
+        "under": 0,
+        "over": 0
+      },
+      "flatBaseline": {
+        "n": 6,
+        "inRangePct": 0,
+        "inRangeCount": 0,
+        "maeMidpoint": 15,
+        "under": 6,
+        "over": 0
+      }
     }
   ],
   "results": [
     {
       "id": "KF-01",
       "tier": "short",
-      "expectedMinutes": 5,
-      "predictedMinutes": 5,
-      "absErrorAi": 0,
-      "absErrorFlat": 5,
+      "expectedRange": [
+        1,
+        2
+      ],
+      "midpoint": 1.5,
+      "predictedMinutes": 2,
+      "inRange": true,
+      "direction": "in",
+      "absErrorMidpoint": 0.5,
+      "flatInRange": false,
+      "flatAbsErrorMidpoint": 3.5,
       "source": "ai",
       "confidence": 0.95,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien usia 23 tahun meminta surat keterangan sehat untuk keperluan melamar kerja tanpa keluhan fisik.",
-      "latencyMs": 5123,
-      "safetyFlag": null
+      "summary": "Pasien baru meminta surat keterangan sehat untuk melamar pekerjaan tanpa keluhan kesehatan.",
+      "latencyMs": 1202,
+      "safetyFlag": null,
+      "maxAnchorOverlap": 0.17
     },
     {
       "id": "KF-02",
       "tier": "short",
-      "expectedMinutes": 5,
-      "predictedMinutes": 5,
-      "absErrorAi": 0,
-      "absErrorFlat": 5,
+      "expectedRange": [
+        1,
+        2
+      ],
+      "midpoint": 1.5,
+      "predictedMinutes": 2,
+      "inRange": true,
+      "direction": "in",
+      "absErrorMidpoint": 0.5,
+      "flatInRange": false,
+      "flatAbsErrorMidpoint": 3.5,
       "source": "ai",
-      "confidence": 0.95,
+      "confidence": 0.9,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Kunjungan kontrol rutin pasien usia 56 tahun untuk pemeriksaan tekanan darah dan pemantauan obat rutin.",
-      "latencyMs": 1154,
-      "safetyFlag": null
+      "summary": "Pemeriksaan tekanan darah rutin dan kontrol pengobatan darah tinggi yang sudah stabil.",
+      "latencyMs": 5784,
+      "safetyFlag": null,
+      "maxAnchorOverlap": 0.23
     },
     {
       "id": "KF-03",
       "tier": "short",
-      "expectedMinutes": 6,
-      "predictedMinutes": 7,
-      "absErrorAi": 1,
-      "absErrorFlat": 4,
+      "expectedRange": [
+        1,
+        2
+      ],
+      "midpoint": 1.5,
+      "predictedMinutes": 2,
+      "inRange": true,
+      "direction": "in",
+      "absErrorMidpoint": 0.5,
+      "flatInRange": false,
+      "flatAbsErrorMidpoint": 3.5,
       "source": "ai",
-      "confidence": 0.95,
+      "confidence": 0.9,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Kunjungan kontrol pasien usia 45 tahun untuk membahas hasil pemeriksaan laboratorium kolesterol dan gula darah puasa.",
-      "latencyMs": 1052,
-      "safetyFlag": null
+      "summary": "Pasien datang untuk kontrol membaca hasil pemeriksaan laboratorium kolesterol dan gula darah puasa.",
+      "latencyMs": 5319,
+      "safetyFlag": null,
+      "maxAnchorOverlap": 0.06
     },
     {
       "id": "KF-04",
       "tier": "short",
-      "expectedMinutes": 5,
-      "predictedMinutes": 5,
-      "absErrorAi": 0,
-      "absErrorFlat": 5,
+      "expectedRange": [
+        1,
+        2
+      ],
+      "midpoint": 1.5,
+      "predictedMinutes": 2,
+      "inRange": true,
+      "direction": "in",
+      "absErrorMidpoint": 0.5,
+      "flatInRange": false,
+      "flatAbsErrorMidpoint": 3.5,
       "source": "ai",
       "confidence": 0.9,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien usia 20 tahun melakukan kunjungan kontrol untuk perpanjangan surat keterangan istirahat dan melaporkan demam sudah turun.",
-      "latencyMs": 1426,
-      "safetyFlag": null
+      "summary": "Pasien meminta perpanjangan surat keterangan istirahat kuliah selama satu hari setelah demamnya turun.",
+      "latencyMs": 5022,
+      "safetyFlag": null,
+      "maxAnchorOverlap": 0.08
     },
     {
       "id": "KF-05",
       "tier": "short",
-      "expectedMinutes": 5,
-      "predictedMinutes": 5,
-      "absErrorAi": 0,
-      "absErrorFlat": 5,
+      "expectedRange": [
+        1,
+        2
+      ],
+      "midpoint": 1.5,
+      "predictedMinutes": 2,
+      "inRange": true,
+      "direction": "in",
+      "absErrorMidpoint": 0.5,
+      "flatInRange": false,
+      "flatAbsErrorMidpoint": 3.5,
       "source": "ai",
       "confidence": 0.95,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien usia 49 tahun datang untuk pemeriksaan tekanan darah rutin tanpa keluhan nyeri dada atau sakit kepala.",
-      "latencyMs": 1128,
-      "safetyFlag": null
+      "summary": "Routine blood pressure check with no reported headache or chest pain.",
+      "latencyMs": 6529,
+      "safetyFlag": null,
+      "maxAnchorOverlap": 0
     },
     {
       "id": "KF-06",
       "tier": "short",
-      "expectedMinutes": 6,
-      "predictedMinutes": 5,
-      "absErrorAi": 1,
-      "absErrorFlat": 4,
+      "expectedRange": [
+        1,
+        2
+      ],
+      "midpoint": 1.5,
+      "predictedMinutes": 2,
+      "inRange": true,
+      "direction": "in",
+      "absErrorMidpoint": 0.5,
+      "flatInRange": false,
+      "flatAbsErrorMidpoint": 3.5,
       "source": "ai",
       "confidence": 0.95,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien usia 29 tahun melakukan kunjungan kontrol pasca pemulihan batuk dan pilek, dengan laporan bahwa seluruh keluhan telah hilang.",
-      "latencyMs": 2337,
-      "safetyFlag": null
+      "summary": "Pasien datang untuk kontrol lanjutan pasca batuk dan pilek minggu lalu dengan keluhan yang sudah hilang.",
+      "latencyMs": 4459,
+      "safetyFlag": null,
+      "maxAnchorOverlap": 0.14
     },
     {
       "id": "KF-07",
       "tier": "mild",
-      "expectedMinutes": 10,
-      "predictedMinutes": 10,
-      "absErrorAi": 0,
-      "absErrorFlat": 0,
+      "expectedRange": [
+        2,
+        3
+      ],
+      "midpoint": 2.5,
+      "predictedMinutes": 3,
+      "inRange": true,
+      "direction": "in",
+      "absErrorMidpoint": 0.5,
+      "flatInRange": false,
+      "flatAbsErrorMidpoint": 2.5,
       "source": "ai",
-      "confidence": 0.85,
+      "confidence": 0.9,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien usia 26 tahun mengeluhkan batuk pilek ringan sejak kemarin dengan tenggorokan gatal dan tanpa keluhan sesak.",
-      "latencyMs": 1015,
-      "safetyFlag": null
+      "summary": "Pasien mengeluhkan batuk pilek ringan sejak kemarin dengan tenggorokan gatal dan tanpa sesak.",
+      "latencyMs": 5150,
+      "safetyFlag": null,
+      "maxAnchorOverlap": 0.07
     },
     {
       "id": "KF-08",
       "tier": "mild",
-      "expectedMinutes": 10,
-      "predictedMinutes": 10,
-      "absErrorAi": 0,
-      "absErrorFlat": 0,
+      "expectedRange": [
+        2,
+        3
+      ],
+      "midpoint": 2.5,
+      "predictedMinutes": 5,
+      "inRange": false,
+      "direction": "over",
+      "absErrorMidpoint": 2.5,
+      "flatInRange": false,
+      "flatAbsErrorMidpoint": 2.5,
       "source": "ai",
-      "confidence": 0.88,
+      "confidence": 0.85,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien usia 32 tahun melaporkan demam ringan sejak tadi malam disertai badan pegal dan pusing ringan.",
-      "latencyMs": 1118,
-      "safetyFlag": null
+      "summary": "Pasien baru mengeluhkan demam ringan sejak tadi malam disertai badan pegal dan pusing sedikit.",
+      "latencyMs": 4190,
+      "safetyFlag": null,
+      "maxAnchorOverlap": 0.17
     },
     {
       "id": "KF-09",
       "tier": "mild",
-      "expectedMinutes": 11,
-      "predictedMinutes": 10,
-      "absErrorAi": 1,
-      "absErrorFlat": 1,
+      "expectedRange": [
+        2,
+        3
+      ],
+      "midpoint": 2.5,
+      "predictedMinutes": 3,
+      "inRange": true,
+      "direction": "in",
+      "absErrorMidpoint": 0.5,
+      "flatInRange": false,
+      "flatAbsErrorMidpoint": 2.5,
       "source": "ai",
       "confidence": 0.88,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien usia 24 tahun mengeluhkan sakit perut di bagian ulu hati terasa perih dan mual ringan setelah terlambat makan.",
-      "latencyMs": 1522,
-      "safetyFlag": null
+      "summary": "Pasien mengeluhkan nyeri ulu hati yang perih disertai mual ringan setelah terlambat makan.",
+      "latencyMs": 6471,
+      "safetyFlag": null,
+      "maxAnchorOverlap": 0.15
     },
     {
       "id": "KF-10",
       "tier": "mild",
-      "expectedMinutes": 10,
-      "predictedMinutes": 10,
-      "absErrorAi": 0,
-      "absErrorFlat": 0,
+      "expectedRange": [
+        2,
+        3
+      ],
+      "midpoint": 2.5,
+      "predictedMinutes": 3,
+      "inRange": true,
+      "direction": "in",
+      "absErrorMidpoint": 0.5,
+      "flatInRange": false,
+      "flatAbsErrorMidpoint": 2.5,
       "source": "ai",
       "confidence": 0.88,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien usia 21 tahun mengeluhkan kulit tangan dan leher yang gatal disertai bentol kemerahan sejak pagi setelah mengonsumsi udang.",
-      "latencyMs": 1026,
-      "safetyFlag": null
+      "summary": "Pasien mengeluhkan kulit tangan dan leher gatal serta bentol kemerahan sejak pagi setelah makan udang.",
+      "latencyMs": 1661,
+      "safetyFlag": null,
+      "maxAnchorOverlap": 0.07
     },
     {
       "id": "KF-11",
       "tier": "mild",
-      "expectedMinutes": 12,
-      "predictedMinutes": 10,
-      "absErrorAi": 2,
-      "absErrorFlat": 2,
+      "expectedRange": [
+        2,
+        3
+      ],
+      "midpoint": 2.5,
+      "predictedMinutes": 3,
+      "inRange": true,
+      "direction": "in",
+      "absErrorMidpoint": 0.5,
+      "flatInRange": false,
+      "flatAbsErrorMidpoint": 2.5,
       "source": "ai",
       "confidence": 0.88,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien usia 35 tahun mengeluhkan nyeri saat menelan sejak 2 hari yang lalu disertai suara agak serak dan masih dapat makan seperti biasa.",
-      "latencyMs": 1118,
-      "safetyFlag": null
+      "summary": "Pasien mengeluhkan nyeri menelan sejak 2 hari dan suara agak serak, masih dapat makan seperti biasa.",
+      "latencyMs": 3555,
+      "safetyFlag": null,
+      "maxAnchorOverlap": 0.18
     },
     {
       "id": "KF-12",
       "tier": "mild",
-      "expectedMinutes": 10,
-      "predictedMinutes": 10,
-      "absErrorAi": 0,
-      "absErrorFlat": 0,
+      "expectedRange": [
+        2,
+        3
+      ],
+      "midpoint": 2.5,
+      "predictedMinutes": 4,
+      "inRange": false,
+      "direction": "over",
+      "absErrorMidpoint": 1.5,
+      "flatInRange": false,
+      "flatAbsErrorMidpoint": 2.5,
       "source": "ai",
-      "confidence": 0.88,
+      "confidence": 0.85,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien usia 28 tahun mengeluhkan pilek ringan dan demam ringan sejak kemarin malam.",
-      "latencyMs": 2044,
-      "safetyFlag": null
+      "summary": "Pasien baru mengeluhkan pilek ringan, hidung berair, dan demam ringan sejak kemarin sore.",
+      "latencyMs": 1522,
+      "safetyFlag": null,
+      "maxAnchorOverlap": 0
     },
     {
       "id": "KF-13",
       "tier": "moderate",
-      "expectedMinutes": 18,
-      "predictedMinutes": 20,
-      "absErrorAi": 2,
-      "absErrorFlat": 8,
+      "expectedRange": [
+        5,
+        20
+      ],
+      "midpoint": 12.5,
+      "predictedMinutes": 12,
+      "inRange": true,
+      "direction": "in",
+      "absErrorMidpoint": 0.5,
+      "flatInRange": true,
+      "flatAbsErrorMidpoint": 7.5,
       "source": "ai",
       "confidence": 0.85,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien usia 38 tahun mengalami demam tinggi naik turun sejak 4 hari disertai batuk berdahak dan keluhan napas terasa agak berat.",
-      "latencyMs": 1636,
-      "safetyFlag": null
+      "summary": "Pasien mengeluhkan demam tinggi naik turun selama 4 hari disertai batuk berdahak dan napas terasa agak berat.",
+      "latencyMs": 910,
+      "safetyFlag": null,
+      "maxAnchorOverlap": 0.07
     },
     {
       "id": "KF-14",
       "tier": "moderate",
-      "expectedMinutes": 18,
-      "predictedMinutes": 20,
-      "absErrorAi": 2,
-      "absErrorFlat": 8,
+      "expectedRange": [
+        5,
+        20
+      ],
+      "midpoint": 12.5,
+      "predictedMinutes": 15,
+      "inRange": true,
+      "direction": "in",
+      "absErrorMidpoint": 2.5,
+      "flatInRange": true,
+      "flatAbsErrorMidpoint": 7.5,
       "source": "ai",
-      "confidence": 0.85,
+      "confidence": 0.8,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien anak usia 5 tahun mengalami demam sejak kemarin sore disertai muntah berulang dan asupan makan serta minum yang berkurang.",
-      "latencyMs": 1226,
-      "safetyFlag": null
+      "summary": "Anak usia 5 tahun dengan keluhan demam sejak kemarin sore, muntah empat kali, serta tidak mau makan atau minum banyak.",
+      "latencyMs": 4738,
+      "safetyFlag": null,
+      "maxAnchorOverlap": 0.13
     },
     {
       "id": "KF-15",
       "tier": "moderate",
-      "expectedMinutes": 16,
+      "expectedRange": [
+        5,
+        20
+      ],
+      "midpoint": 12.5,
       "predictedMinutes": 15,
-      "absErrorAi": 1,
-      "absErrorFlat": 6,
+      "inRange": true,
+      "direction": "in",
+      "absErrorMidpoint": 2.5,
+      "flatInRange": true,
+      "flatAbsErrorMidpoint": 7.5,
       "source": "ai",
       "confidence": 0.85,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien usia 33 tahun mengeluhkan diare cair lebih dari 6 kali sejak kemarin disertai mulas hebat dan badan terasa lemas.",
-      "latencyMs": 2256,
-      "safetyFlag": null
+      "summary": "Pasien mengeluhkan diare cair lebih dari 6 kali sejak kemarin disertai mulas hebat dan badan terasa lemas.",
+      "latencyMs": 976,
+      "safetyFlag": null,
+      "maxAnchorOverlap": 0.13
     },
     {
       "id": "KF-16",
       "tier": "moderate",
-      "expectedMinutes": 17,
-      "predictedMinutes": 20,
-      "absErrorAi": 3,
-      "absErrorFlat": 7,
+      "expectedRange": [
+        5,
+        20
+      ],
+      "midpoint": 12.5,
+      "predictedMinutes": 10,
+      "inRange": true,
+      "direction": "in",
+      "absErrorMidpoint": 2.5,
+      "flatInRange": true,
+      "flatAbsErrorMidpoint": 7.5,
       "source": "ai",
-      "confidence": 0.85,
+      "confidence": 0.8,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien usia 61 tahun mengeluhkan pusing berputar sejak bangun tidur disertai rasa mual dan kesulitan menjaga keseimbangan saat berdiri.",
-      "latencyMs": 1036,
-      "safetyFlag": null
+      "summary": "Pasien mengeluhkan pusing berputar sejak bangun tidur disertai mual dan sulit berdiri seimbang.",
+      "latencyMs": 4793,
+      "safetyFlag": null,
+      "maxAnchorOverlap": 0.15
     },
     {
       "id": "KF-17",
       "tier": "moderate",
-      "expectedMinutes": 16,
-      "predictedMinutes": 15,
-      "absErrorAi": 1,
-      "absErrorFlat": 6,
+      "expectedRange": [
+        5,
+        20
+      ],
+      "midpoint": 12.5,
+      "predictedMinutes": 7,
+      "inRange": true,
+      "direction": "in",
+      "absErrorMidpoint": 5.5,
+      "flatInRange": true,
+      "flatAbsErrorMidpoint": 7.5,
       "source": "ai",
       "confidence": 0.85,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien usia 41 tahun mengeluhkan nyeri dan perih saat buang air kecil sejak 3 hari yang lalu, disertai demam serta pegal pada area pinggang.",
-      "latencyMs": 1008,
-      "safetyFlag": null
+      "summary": "Pasien mengeluhkan nyeri dan perih saat buang air kecil sejak 3 hari, disertai demam dan pegal pinggang.",
+      "latencyMs": 1263,
+      "safetyFlag": null,
+      "maxAnchorOverlap": 0.14
     },
     {
       "id": "KF-18",
       "tier": "moderate",
-      "expectedMinutes": 19,
-      "predictedMinutes": 20,
-      "absErrorAi": 1,
-      "absErrorFlat": 9,
+      "expectedRange": [
+        5,
+        20
+      ],
+      "midpoint": 12.5,
+      "predictedMinutes": 12,
+      "inRange": true,
+      "direction": "in",
+      "absErrorMidpoint": 0.5,
+      "flatInRange": true,
+      "flatAbsErrorMidpoint": 7.5,
       "source": "ai",
-      "confidence": 0.85,
+      "confidence": 0.8,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien usia 47 tahun mengeluhkan batuk berdahak selama hampir 2 minggu yang belum sembuh, disertai penurunan nafsu makan dan sering berkeringat di malam hari.",
-      "latencyMs": 4197,
-      "safetyFlag": null
+      "summary": "Pasien mengeluhkan batuk berdahak yang tidak sembuh hampir 2 minggu, disertai penurunan nafsu makan dan keringat malam.",
+      "latencyMs": 1217,
+      "safetyFlag": null,
+      "maxAnchorOverlap": 0.07
     },
     {
       "id": "KF-19",
       "tier": "complex",
-      "expectedMinutes": 22,
-      "predictedMinutes": 20,
-      "absErrorAi": 2,
-      "absErrorFlat": 12,
+      "expectedRange": [
+        10,
+        30
+      ],
+      "midpoint": 20,
+      "predictedMinutes": 15,
+      "inRange": true,
+      "direction": "in",
+      "absErrorMidpoint": 5,
+      "flatInRange": false,
+      "flatAbsErrorMidpoint": 15,
       "source": "ai",
-      "confidence": 0.88,
+      "confidence": 0.85,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Kunjungan kontrol pasien usia 34 tahun untuk perawatan luka lecet dalam di lutut akibat jatuh dari motor serta penggantian perban.",
-      "latencyMs": 4198,
-      "safetyFlag": null
+      "summary": "Pasien datang untuk perawatan luka lecet dalam di lutut akibat jatuh dari motor dan memerlukan penggantian perban.",
+      "latencyMs": 1197,
+      "safetyFlag": null,
+      "maxAnchorOverlap": 0
     },
     {
       "id": "KF-20",
       "tier": "complex",
-      "expectedMinutes": 23,
-      "predictedMinutes": 20,
-      "absErrorAi": 3,
-      "absErrorFlat": 13,
+      "expectedRange": [
+        10,
+        30
+      ],
+      "midpoint": 20,
+      "predictedMinutes": 15,
+      "inRange": true,
+      "direction": "in",
+      "absErrorMidpoint": 5,
+      "flatInRange": false,
+      "flatAbsErrorMidpoint": 15,
       "source": "ai",
-      "confidence": 0.88,
+      "confidence": 0.85,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien usia 29 tahun datang dengan keluhan jari tangan teriris pisau 1 jam lalu dan luka masih berdarah yang memerlukan pembersihan serta pembalutan.",
-      "latencyMs": 4588,
-      "safetyFlag": null
+      "summary": "Pasien baru datang dengan luka teriris pisau dapur pada jari tangan sejak 1 jam lalu yang masih berdarah dan memerlukan pembersihan serta pembalutan.",
+      "latencyMs": 5218,
+      "safetyFlag": null,
+      "maxAnchorOverlap": 0
     },
     {
       "id": "KF-21",
       "tier": "complex",
-      "expectedMinutes": 24,
+      "expectedRange": [
+        10,
+        30
+      ],
+      "midpoint": 20,
       "predictedMinutes": 20,
-      "absErrorAi": 4,
-      "absErrorFlat": 14,
+      "inRange": true,
+      "direction": "in",
+      "absErrorMidpoint": 0,
+      "flatInRange": false,
+      "flatAbsErrorMidpoint": 15,
       "source": "ai",
-      "confidence": 0.88,
+      "confidence": 0.8,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien lansia usia 71 tahun kontrol rutin dengan keluhan pusing berulang, kaki kesemutan, gangguan tidur, serta meminta evaluasi tekanan darah dan kadar gula darah.",
-      "latencyMs": 1518,
-      "safetyFlag": null
+      "summary": "Pasien lansia usia 71 tahun mengeluhkan pusing sering kambuh, kaki kesemutan, susah tidur, serta ingin evaluasi tekanan darah dan gula darah.",
+      "latencyMs": 1249,
+      "safetyFlag": null,
+      "maxAnchorOverlap": 0.16
     },
     {
       "id": "KF-22",
       "tier": "complex",
-      "expectedMinutes": 25,
+      "expectedRange": [
+        10,
+        30
+      ],
+      "midpoint": 20,
       "predictedMinutes": 25,
-      "absErrorAi": 0,
-      "absErrorFlat": 15,
+      "inRange": true,
+      "direction": "in",
+      "absErrorMidpoint": 5,
+      "flatInRange": false,
+      "flatAbsErrorMidpoint": 15,
       "source": "ai",
-      "confidence": 0.9,
+      "confidence": 0.85,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien usia 59 tahun mengeluhkan nyeri dada sebelah kiri sejak pagi yang disertai sesak napas berat, keringat dingin, dan pusing.",
-      "latencyMs": 1111,
-      "safetyFlag": null
+      "summary": "Pasien mengeluhkan nyeri dada sebelah kiri sejak pagi disertai sesak napas berat, keringat dingin, dan pusing.",
+      "latencyMs": 990,
+      "safetyFlag": null,
+      "maxAnchorOverlap": 0.06
     },
     {
       "id": "KF-23",
       "tier": "complex",
-      "expectedMinutes": 24,
-      "predictedMinutes": 22,
-      "absErrorAi": 2,
-      "absErrorFlat": 14,
+      "expectedRange": [
+        10,
+        30
+      ],
+      "midpoint": 20,
+      "predictedMinutes": 20,
+      "inRange": true,
+      "direction": "in",
+      "absErrorMidpoint": 0,
+      "flatInRange": false,
+      "flatAbsErrorMidpoint": 15,
       "source": "ai",
-      "confidence": 0.88,
+      "confidence": 0.85,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien usia 19 tahun mengeluhkan sesak napas yang kambuh sejak sore hari, disertai bunyi mengi dan kesulitan berbicara panjang.",
-      "latencyMs": 1443,
-      "safetyFlag": null
+      "summary": "Pasien baru usia 19 tahun dengan riwayat kondisi kronis mengalami sesak napas kambuh sejak sore, disertai mengi dan kesulitan berbicara panjang.",
+      "latencyMs": 1009,
+      "safetyFlag": null,
+      "maxAnchorOverlap": 0.06
     },
     {
       "id": "KF-24",
       "tier": "complex",
-      "expectedMinutes": 25,
+      "expectedRange": [
+        10,
+        30
+      ],
+      "midpoint": 20,
       "predictedMinutes": 20,
-      "absErrorAi": 5,
-      "absErrorFlat": 15,
+      "inRange": true,
+      "direction": "in",
+      "absErrorMidpoint": 0,
+      "flatInRange": false,
+      "flatAbsErrorMidpoint": 15,
       "source": "ai",
       "confidence": 0.85,
       "model": "gemini-3.5-flash-lite",
-      "summary": "Pasien usia 64 tahun dengan riwayat kadar gula darah tinggi mengeluhkan luka di telapak kaki yang tidak kunjung sembuh selama 1 minggu disertai bengkak dan kemerahan.",
-      "latencyMs": 4800,
-      "safetyFlag": null
+      "summary": "Pasien dengan luka di telapak kaki yang belum kering sejak 1 minggu, disertai bengkak kemerahan dan riwayat gula darah tinggi.",
+      "latencyMs": 1318,
+      "safetyFlag": null,
+      "maxAnchorOverlap": 0.18
     }
   ]
 }

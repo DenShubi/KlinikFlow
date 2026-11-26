@@ -12,6 +12,10 @@ type CoreModule = {
     modelId: string,
     trimmedComplaint: string,
   ) => EstimateOutput | null;
+  getFallbackMinutes: () => number;
+  MIN_MINUTES: number;
+  MAX_MINUTES: number;
+  DEFAULT_FALLBACK_MINUTES: number;
 };
 
 function loadEnvFile(filename: string): void {
@@ -56,44 +60,49 @@ function loadEnvLocal(): void {
 type IntegrationCase = {
   name: string;
   input: EstimateInput;
-  expectedRange?: [number, number];
+  expectedRange?: [number, number]; // consultation minutes, from the doctor's tiers
   simulateMissingApiKey?: boolean;
   expectFallback?: boolean;
 };
 
+// Expected ranges follow the practising doctor's tiers: routine 1-2 (clamped
+// to 2), mild 2-3, moderate 5-20, complex/procedure 10-30 minutes.
 const INTEGRATION_CASES: IntegrationCase[] = [
   {
-    name: "1. Short follow-up / surat sehat",
+    name: "1. Routine: certificate + BP check, returning patient",
     input: {
       ticketId: "00000000-0000-0000-0000-000000000001",
       complaint: "Minta surat keterangan sehat dan cek tensi rutin",
       patientAgeYears: 27,
-      isFollowUp: true,
+      visitPurpose: "certificate",
+      isNewPatient: false,
       doctorId: "doc-internal-01",
     },
-    expectedRange: [5, 8],
+    expectedRange: [2, 3],
   },
   {
-    name: "2. Mild cold/fever",
+    name: "2. Mild: cold and 1-day fever, returning patient",
     input: {
       ticketId: "00000000-0000-0000-0000-000000000002",
       complaint: "Batuk pilek ringan dan demam 1 hari",
       patientAgeYears: 31,
-      isFollowUp: false,
+      visitPurpose: "new_complaint",
+      isNewPatient: false,
       doctorId: "doc-internal-01",
     },
-    expectedRange: [8, 15],
+    expectedRange: [2, 3],
   },
   {
-    name: "3. Complex respiratory / wound care",
+    name: "3. Complex: wound care + breathlessness (procedure)",
     input: {
       ticketId: "00000000-0000-0000-0000-000000000003",
       complaint: "Perawatan luka pasca kecelakaan di kaki, ganti perban, dan mengeluh sesak napas",
       patientAgeYears: 54,
-      isFollowUp: false,
+      visitPurpose: "procedure",
+      isNewPatient: false,
       doctorId: "doc-internal-02",
     },
-    expectedRange: [18, 25],
+    expectedRange: [10, 30],
   },
   {
     name: "4. Empty string (immediate fallback)",
@@ -109,61 +118,91 @@ const INTEGRATION_CASES: IntegrationCase[] = [
       ticketId: "00000000-0000-0000-0000-000000000005",
       complaint: "Demam tinggi 3 hari disertai batuk",
       patientAgeYears: 22,
-      isFollowUp: false,
+      visitPurpose: "new_complaint",
     },
     simulateMissingApiKey: true,
     expectFallback: true,
   },
 ];
 
-function runUnitChecks(core: CoreModule): number {
+function withEnv<T>(key: string, value: string | undefined, fn: () => T): T {
+  const saved = process.env[key];
+  if (value === undefined) delete process.env[key];
+  else process.env[key] = value;
+  try {
+    return fn();
+  } finally {
+    if (saved === undefined) delete process.env[key];
+    else process.env[key] = saved;
+  }
+}
+
+function runUnitChecks(core: CoreModule): { failed: number; total: number } {
   const checks: Array<{ name: string; pass: boolean; detail: string }> = [];
 
-  // 1. Privacy guard: ticketId & doctorId must never appear in serialized prompt
+  // A. Privacy guard: IDs and personal data must never appear in the prompt.
   const payload = core.buildSanitizedPromptPayload({
     ticketId: "secret-ticket-999",
     complaint: "Batuk ringan",
     patientAgeYears: 29,
-    isFollowUp: true,
+    visitPurpose: "follow_up",
+    isNewPatient: false,
+    hasChronicCondition: true,
     doctorId: "secret-doctor-777",
-  });
-  const privacyPass =
-    !payload.includes("secret-ticket-999") &&
-    !payload.includes("secret-doctor-777") &&
-    !payload.includes("ticketId") &&
-    !payload.includes("doctorId") &&
-    payload.includes("Batuk ringan");
+    // Fields the estimator must drop even if a caller passes them by mistake.
+    ...({ fullName: "Budi Santoso", phone: "+6281234567890", birthDate: "1997-02-03" } as object),
+  } as EstimateInput);
+  const forbidden = ["secret-ticket-999", "secret-doctor-777", "ticketId", "doctorId", "Budi", "+62812", "1997-02-03", "fullName", "phone", "birthDate"];
   checks.push({
-    name: "Unit A. Privacy guard strips ticketId and doctorId",
-    pass: privacyPass,
+    name: "Unit A. Privacy guard strips IDs, name, phone and birth date",
+    pass: forbidden.every((f) => !payload.includes(f)) && payload.includes("Batuk ringan"),
     detail: payload,
   });
 
-  // 2. Clamping lower bound (minutes < 5 -> 5, confidence < 0 -> 0)
+  // B. New inputs are forwarded; isFollowUp follows visitPurpose.
+  const parsed = JSON.parse(payload) as Record<string, unknown>;
+  const certificate = JSON.parse(
+    core.buildSanitizedPromptPayload({ ticketId: "", complaint: "Surat sehat", visitPurpose: "certificate", isFollowUp: true }),
+  ) as Record<string, unknown>;
+  const legacy = JSON.parse(core.buildSanitizedPromptPayload({ ticketId: "", complaint: "Kontrol", isFollowUp: true })) as Record<string, unknown>;
+  checks.push({
+    name: "Unit B. visitPurpose, isNewPatient, hasChronicCondition forwarded; isFollowUp derived",
+    pass:
+      parsed.visitPurpose === "follow_up" &&
+      parsed.isFollowUp === true &&
+      parsed.isNewPatient === false &&
+      parsed.hasChronicCondition === true &&
+      certificate.isFollowUp === false &&
+      legacy.isFollowUp === true &&
+      legacy.visitPurpose === undefined,
+    detail: JSON.stringify({ parsed, certificate, legacy }),
+  });
+
+  // C. Clamping lower bound (minutes < 2 -> 2, confidence < 0 -> 0)
   const low = core.parseEstimateResponse(
-    JSON.stringify({ minutes: 1.2, confidence: -0.5, summary: "Kontrol singkat." }),
+    JSON.stringify({ minutes: 0.6, confidence: -0.5, summary: "Kontrol singkat." }),
     "test-model",
     "Kontrol",
   );
   checks.push({
-    name: "Unit B. Hard-clamps low values (minutes -> 5, confidence -> 0)",
-    pass: low !== null && low.minutes === 5 && low.confidence === 0 && low.model === "test-model",
+    name: `Unit C. Hard-clamps low values (minutes -> ${core.MIN_MINUTES}, confidence -> 0)`,
+    pass: low !== null && low.minutes === 2 && core.MIN_MINUTES === 2 && low.confidence === 0 && low.model === "test-model",
     detail: JSON.stringify(low),
   });
 
-  // 3. Clamping upper bound (minutes > 25 -> 25, confidence > 1 -> 1)
+  // D. Clamping upper bound (minutes > 30 -> 30, confidence > 1 -> 1)
   const high = core.parseEstimateResponse(
     JSON.stringify({ minutes: 99, confidence: 1.8, summary: "Keluhan kompleks." }),
     "test-model",
     "Keluhan kompleks",
   );
   checks.push({
-    name: "Unit C. Hard-clamps high values (minutes -> 25, confidence -> 1)",
-    pass: high !== null && high.minutes === 25 && high.confidence === 1,
+    name: `Unit D. Hard-clamps high values (minutes -> ${core.MAX_MINUTES}, confidence -> 1)`,
+    pass: high !== null && high.minutes === 30 && core.MAX_MINUTES === 30 && high.confidence === 1,
     detail: JSON.stringify(high),
   });
 
-  // 4. Malformed / invalid JSON returns null (triggers fallback)
+  // E. Malformed / invalid JSON returns null (triggers fallback)
   const invalidJson = core.parseEstimateResponse("{not-valid-json", "test-model", "Demam");
   const missingMinutes = core.parseEstimateResponse(
     JSON.stringify({ summary: "No minutes field" }),
@@ -171,9 +210,19 @@ function runUnitChecks(core: CoreModule): number {
     "Demam",
   );
   checks.push({
-    name: "Unit D. Invalid JSON / missing minutes returns null",
+    name: "Unit E. Invalid JSON / missing minutes returns null",
     pass: invalidJson === null && missingMinutes === null,
     detail: `invalidJson=${String(invalidJson)}, missingMinutes=${String(missingMinutes)}`,
+  });
+
+  // F. Fallback: 5 by default, configurable, clamped to the bounds.
+  const byDefault = withEnv("QUEUE_FALLBACK_CONSULT_MINUTES", undefined, () => core.getFallbackMinutes());
+  const configured = withEnv("QUEUE_FALLBACK_CONSULT_MINUTES", "8", () => core.getFallbackMinutes());
+  const tooHigh = withEnv("QUEUE_FALLBACK_CONSULT_MINUTES", "99", () => core.getFallbackMinutes());
+  checks.push({
+    name: "Unit F. Fallback is 5 by default, env-configurable and clamped",
+    pass: byDefault === 5 && core.DEFAULT_FALLBACK_MINUTES === 5 && configured === 8 && tooHigh === 30,
+    detail: JSON.stringify({ byDefault, configured, tooHigh }),
   });
 
   console.log("=== Unit Checks ===");
@@ -188,7 +237,7 @@ function runUnitChecks(core: CoreModule): number {
     }
   }
   console.log("");
-  return failed;
+  return { failed, total: checks.length };
 }
 
 async function main(): Promise<void> {
@@ -202,11 +251,13 @@ async function main(): Promise<void> {
 
   const hasApiKey = Boolean(process.env.GEMINI_API_KEY?.trim());
   const configuredModel = process.env.GEMINI_MODEL?.trim() || "gemini-3.5-flash-lite (default)";
+  const fallbackMinutes = core.getFallbackMinutes();
   console.log(
-    `Running estimateConsultation tests (GEMINI_API_KEY ${hasApiKey ? "configured" : "not set"}, model: ${configuredModel})\n`,
+    `Running estimateConsultation tests (GEMINI_API_KEY ${hasApiKey ? "configured" : "not set"}, model: ${configuredModel}, fallback: ${fallbackMinutes} min)\n`,
   );
 
-  let failed = runUnitChecks(core);
+  const unit = runUnitChecks(core);
+  let failed = unit.failed;
 
   console.log("=== Integration / Contract Cases ===");
   for (const testCase of INTEGRATION_CASES) {
@@ -222,13 +273,16 @@ async function main(): Promise<void> {
 
       const reasons: string[] = [];
 
-      if (!Number.isInteger(result.minutes) || result.minutes < 5 || result.minutes > 25) {
-        reasons.push(`minutes out of bounds (5..25): ${result.minutes}`);
+      if (!Number.isInteger(result.minutes) || result.minutes < core.MIN_MINUTES || result.minutes > core.MAX_MINUTES) {
+        reasons.push(`minutes out of bounds (${core.MIN_MINUTES}..${core.MAX_MINUTES}): ${result.minutes}`);
       }
 
       if (testCase.expectFallback) {
         if (result.source !== "fallback") {
           reasons.push(`expected source="fallback", got "${result.source}"`);
+        }
+        if (result.minutes !== fallbackMinutes) {
+          reasons.push(`expected fallback ${fallbackMinutes} min, got ${result.minutes}`);
         }
         if (elapsedMs > 250) {
           reasons.push(`expected immediate fallback (<250ms), took ${elapsedMs}ms`);
@@ -278,7 +332,7 @@ async function main(): Promise<void> {
     }
   }
 
-  const total = 4 + INTEGRATION_CASES.length;
+  const total = unit.total + INTEGRATION_CASES.length;
   console.log(`\nSummary: ${total - failed}/${total} passed (${failed} failed).`);
   if (failed > 0) {
     process.exitCode = 1;

@@ -5,6 +5,7 @@ import { connection } from "next/server";
 import { doctorAvailability, type Availability } from "@/lib/clinic-hours";
 import { clinicToday, minutesUntil } from "@/lib/clinic-time";
 import { ticketCode } from "@/lib/queue/labels";
+import { FALLBACK_SLOT_MINUTES } from "@/lib/queue/rules";
 import { queueTopic } from "@/lib/queue/public-status";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -27,7 +28,6 @@ export type BoardDoctor = {
   topic: string; // Realtime broadcast topic of this queue
 };
 
-const FALLBACK_MINUTES = 10;
 
 export async function getQueueBoard(): Promise<BoardDoctor[]> {
   await connection(); // live data and the clock: per request
@@ -55,7 +55,7 @@ export async function getQueueBoard(): Promise<BoardDoctor[]> {
     const waiting = queue.filter((t) => t.status === "waiting" && !(t.missed_turn_at && !t.checked_in_at));
     // When the last waiting patient is expected to finish.
     const lastEnd = waiting
-      .map((t) => (t.estimated_call_at ? Date.parse(t.estimated_call_at) + (t.predicted_minutes ?? FALLBACK_MINUTES) * 60000 : 0))
+      .map((t) => (t.estimated_call_at ? Date.parse(t.estimated_call_at) + (t.predicted_minutes ?? FALLBACK_SLOT_MINUTES) * 60000 : 0))
       .reduce((a, b) => Math.max(a, b), 0);
 
     return {

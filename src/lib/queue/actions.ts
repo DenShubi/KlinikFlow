@@ -2,11 +2,10 @@
 
 import { refresh } from "next/cache";
 
-import { ageInYears } from "@/lib/age";
 import { requireStaff } from "@/lib/auth/dal";
-import { clinicToday } from "@/lib/clinic-time";
 import { normalizePhone } from "@/lib/phone";
 import { estimateForQueue } from "@/lib/queue/estimator";
+import { parseVisitDetails } from "@/lib/queue/visit";
 import { queueErrorMessage } from "@/lib/queue/errors";
 import { ticketCode } from "@/lib/queue/labels";
 import { createClient } from "@/lib/supabase/server";
@@ -27,8 +26,6 @@ export async function createTicket(_prev: ActionResult, formData: FormData): Pro
   const doctorId = String(formData.get("doctorId") ?? "");
   const fullName = String(formData.get("fullName") ?? "").trim();
   const complaint = String(formData.get("complaint") ?? "").trim();
-  const birthDate = String(formData.get("birthDate") ?? "").trim();
-  const isFollowUp = formData.get("isFollowUp") === "on";
   const phone = normalizePhone(String(formData.get("phone") ?? ""));
 
   if (!doctorId) return { ok: false, error: "Pilih dokter." };
@@ -36,11 +33,13 @@ export async function createTicket(_prev: ActionResult, formData: FormData): Pro
   if (!complaint) return { ok: false, error: "Keluhan wajib diisi." };
   if (!phone) return { ok: false, error: "Nomor WhatsApp wajib diisi." };
   if (phone === "invalid") return { ok: false, error: "Nomor WhatsApp tidak valid. Contoh: 0812 3456 7890." };
+  const visit = parseVisitDetails(formData);
+  if (!visit.ok) return { ok: false, error: visit.error };
 
   const supabase = await createClient();
   const { data: patient, error: patientError } = await supabase
     .from("patients")
-    .insert({ full_name: fullName, phone, birth_date: birthDate || null })
+    .insert({ full_name: fullName, phone }) // age is stored per visit on the ticket, not as a birth date
     .select("id")
     .single();
   if (patientError) return { ok: false, error: queueErrorMessage(patientError) };
@@ -48,8 +47,10 @@ export async function createTicket(_prev: ActionResult, formData: FormData): Pro
   const estimate = await estimateForQueue({
     ticketId: "", // not created yet; the estimator never sends it anywhere
     complaint,
-    patientAgeYears: ageInYears(birthDate, clinicToday()),
-    isFollowUp,
+    patientAgeYears: visit.value.ageYears,
+    visitPurpose: visit.value.visitPurpose,
+    isNewPatient: visit.value.isNewPatient,
+    hasChronicCondition: visit.value.hasChronicCondition,
     doctorId,
   });
 
@@ -58,7 +59,11 @@ export async function createTicket(_prev: ActionResult, formData: FormData): Pro
     p_patient_id: patient.id,
     p_channel: "walk_in", // registered at the desk; the patient still confirms arrival ("Tiba")
     p_complaint: complaint,
-    p_is_follow_up: isFollowUp,
+    p_is_follow_up: visit.value.visitPurpose === "follow_up",
+    p_visit_purpose: visit.value.visitPurpose,
+    p_is_new_patient: visit.value.isNewPatient,
+    p_has_chronic_condition: visit.value.hasChronicCondition,
+    p_patient_age_years: visit.value.ageYears,
     p_predicted_minutes: estimate.minutes,
     p_prediction_source: estimate.source,
     p_prediction_confidence: estimate.confidence,

@@ -211,11 +211,11 @@ The app is a standard Next.js project and deploys to
 | Path | For | What it does |
 | --- | --- | --- |
 | `/` | Everyone | Start page: one live ticket per doctor (who is being served, how many wait, opening hours; swipe or use the dots), take a queue number, staff sign-in |
-| `/intake` | Patients | Register remotely: choose a doctor who is open now (with the current wait), enter name, WhatsApp number and complaint; short follow-up questions clarify the complaint |
+| `/intake` | Patients | Register remotely: choose a doctor who is open now (with the current wait), enter name, WhatsApp number, complaint, age, visit purpose, whether they have seen this doctor before and (optionally) a chronic condition; short follow-up questions clarify the complaint |
 | `/ticket/<id>` | Patients | The patient's own ticket: number, people ahead, estimated call time, when to arrive; updates live |
 | `/login` | Staff | Sign in |
 | `/doctor` | Doctors | Dashboard: current patient with a timer, one button to call / start / finish, complaint summary, next patients, today's predicted vs actual durations |
-| `/reception` | Receptionists | All queues and opening hours, register a patient at the desk (with the same complaint questions and the estimated consultation time), mark arrivals, cancel tickets |
+| `/reception` | Receptionists | All queues and opening hours, register a patient at the desk (same fields and complaint questions as the patient form, then the estimated consultation time), mark arrivals, cancel tickets |
 
 Patients never sign in. After registering they are sent to their ticket page,
 whose link contains the ticket id (a random UUID). That page reads
@@ -352,9 +352,12 @@ patient who has not arrived at the clinic when their turn comes. The numbers
 consultation plus the predicted minutes of everyone ahead of them. Predictions
 come from the consultation estimator when the ticket is created
 ([`src/lib/queue/estimator.ts`](src/lib/queue/estimator.ts)), which calls
-the Gemini estimator in [`src/lib/ai`](src/lib/ai). Without `GEMINI_API_KEY`,
-or when Gemini is slow or fails, it uses the default length
-(`QUEUE_FALLBACK_CONSULT_MINUTES`). Because time also passes between changes (a
+the Gemini estimator in [`src/lib/ai`](src/lib/ai). The estimate is the
+doctor's consultation time (2–30 minutes, following a practising GP's tiers)
+plus `QUEUE_CHANGEOVER_MINUTES` (default 1) for the next patient to come in;
+that total is stored as `predicted_minutes`. Without `GEMINI_API_KEY`, or when
+Gemini is slow or fails, it uses the default consultation length
+(`QUEUE_FALLBACK_CONSULT_MINUTES`, default 5). Because time also passes between changes (a
 consultation runs over, a doctor is idle), a `pg_cron` job recalculates every
 active queue once a minute
 ([`refresh_estimates_job` migration](supabase/migrations/20261120113912_refresh_estimates_job.sql)).
@@ -420,7 +423,8 @@ tokens.
 | `GEMINI_API_KEY` | Consultation estimates | **yes** |
 | `GEMINI_MODEL` | Gemini model used for estimates | no |
 | `GEMINI_TIMEOUT_MS` | How long to wait for Gemini before using the default length | no |
-| `QUEUE_FALLBACK_CONSULT_MINUTES` | Default consultation length when no estimate is available | no |
+| `QUEUE_FALLBACK_CONSULT_MINUTES` | Consultation minutes used when no AI estimate is available (default 5) | no |
+| `QUEUE_CHANGEOVER_MINUTES` | Minutes added to every estimate for the next patient to come in (default 1) | no |
 | `WHATSAPP_SEND_ENABLED` | `false` logs messages instead of sending them | no |
 | `WHATSAPP_ACCESS_TOKEN` | Sending WhatsApp messages | **yes** |
 | `WHATSAPP_PHONE_NUMBER_ID` | Sender number for WhatsApp messages | no |
@@ -474,13 +478,15 @@ docs/CONTRACT.md    interface between the queue and the estimation module
 ## AI disclosure
 
 KlinikFlow uses Google's Gemini API (server-side only) for two narrow tasks:
-estimating how long a GP consultation will take (clamped to 5–25 minutes) and
-writing a one- or two-sentence neutral summary of the patient's complaint for
-the doctor. The AI never diagnoses, recommends medication or reorders the
-queue by urgency. Only the complaint text, an optional age in years and a
-follow-up flag are sent to the model; never a name, phone number, birth date
-or ticket id. Every answer is validated, and on timeout or error the queue uses
-a default length, marked *Estimasi standar* on screen.
+estimating how long a GP consultation will take (2–30 minutes, following a
+practising doctor's duration tiers) and writing a one- or two-sentence neutral
+summary of the patient's complaint for the doctor. The AI never diagnoses,
+recommends medication or reorders the queue by urgency. Only the complaint
+text, age in years, visit purpose, whether the patient is new and a yes/no
+chronic-condition flag are sent to the model; never a name, phone number, birth
+date or ticket id. Every answer is validated, and on timeout or error the queue
+uses a default length (5 minutes) so it never blocks. On a 24-case synthetic
+benchmark, 22 of 24 estimates fell inside the doctor's ranges.
 
 Full details, evaluation results and known limitations:
 [docs/AI_DISCLOSURE.md](docs/AI_DISCLOSURE.md).

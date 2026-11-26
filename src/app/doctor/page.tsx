@@ -8,18 +8,18 @@ import { LiveRefresh } from "@/components/queue/live-refresh";
 import { PageTitle, StaffHeader } from "@/components/staff-header";
 import { PrintLabel, Ticket } from "@/components/ticket";
 import { ageInYears } from "@/lib/age";
+import { VISIT_PURPOSE_LABEL } from "@/lib/queue/visit";
 import { requireStaff } from "@/lib/auth/dal";
 import { clinicToday, formatClinicDate, formatClinicTime, minutesUntil } from "@/lib/clinic-time";
 import { callNext, finishConsultation, markAbsent, startConsultation } from "@/lib/queue/actions";
 import { ticketCode } from "@/lib/queue/labels";
-import { ABSENT_AFTER_MINUTES, MAX_DEFERS } from "@/lib/queue/rules";
+import { ABSENT_AFTER_MINUTES, FALLBACK_SLOT_MINUTES, MAX_DEFERS } from "@/lib/queue/rules";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: "Dokter · KlinikFlow",
 };
 
-const FALLBACK_MINUTES = 10;
 
 // Doctor dashboard: today's own queue only (row-level security returns
 // nothing else), with complaint summaries but no patient contact data.
@@ -51,7 +51,7 @@ export default async function DoctorPage() {
     supabase
       .from("queue_tickets")
       .select(
-        "id, ticket_number, position, status, channel, checked_in_at, called_at, started_at, estimated_call_at, actual_minutes, complaint, is_follow_up, predicted_minutes, prediction_source, ai_summary, defer_count, missed_turn_at, patients (full_name, birth_date)",
+        "id, ticket_number, position, status, channel, checked_in_at, called_at, started_at, estimated_call_at, actual_minutes, complaint, is_follow_up, visit_purpose, is_new_patient, has_chronic_condition, patient_age_years, predicted_minutes, prediction_source, ai_summary, defer_count, missed_turn_at, patients (full_name, birth_date)",
       )
       .eq("doctor_id", staff.doctorId)
       .eq("service_date", today)
@@ -74,12 +74,13 @@ export default async function DoctorPage() {
   const avgActual = avg(done.map((t) => Number(t.actual_minutes ?? 0)).filter((m) => m > 0));
   const last = waiting.filter((t) => t.estimated_call_at).at(-1);
   const queueEnds = last?.estimated_call_at
-    ? new Date(Date.parse(last.estimated_call_at) + (last.predicted_minutes ?? FALLBACK_MINUTES) * 60000).toISOString()
+    ? new Date(Date.parse(last.estimated_call_at) + (last.predicted_minutes ?? FALLBACK_SLOT_MINUTES) * 60000).toISOString()
     : null;
 
   const state = inConsultation ? "consult" : called ? "called" : "next";
   const stateLabel = { consult: "Sedang diperiksa", called: "Dipanggil", next: "Berikutnya" }[state];
-  const age = shown ? ageInYears(shown.patients?.birth_date, today) : undefined;
+  // Age from the intake form (per visit); older rows fall back to the birth date.
+  const age = shown ? (shown.patient_age_years ?? ageInYears(shown.patients?.birth_date, today)) : undefined;
   const summary = shown?.ai_summary?.trim();
 
   return (
@@ -176,8 +177,16 @@ export default async function DoctorPage() {
                     </p>
                     <p className="mt-3 text-xl font-bold tracking-[-0.02em]">{shown.patients?.full_name}</p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
-                      <Tag>{shown.is_follow_up ? "Kontrol" : "Kunjungan baru"}</Tag>
+                      <Tag>
+                        {shown.visit_purpose
+                          ? VISIT_PURPOSE_LABEL[shown.visit_purpose]
+                          : shown.is_follow_up
+                            ? "Kontrol"
+                            : "Kunjungan baru"}
+                      </Tag>
                       {age !== undefined ? <Tag>{age} thn</Tag> : null}
+                      {shown.has_chronic_condition ? <Tag tone="warn">Penyakit kronis</Tag> : null}
+                      {shown.is_new_patient ? <Tag>Pasien baru</Tag> : null}
                       {shown.predicted_minutes ? <Tag>±{shown.predicted_minutes} mnt</Tag> : null}
                     </div>
                   </div>
@@ -223,7 +232,7 @@ export default async function DoctorPage() {
               </div>
               <ol>
                 {queue.map((t, i) => {
-                  const tAge = ageInYears(t.patients?.birth_date, today);
+                  const tAge = t.patient_age_years ?? ageInYears(t.patients?.birth_date, today);
                   return (
                     <li key={t.id} className="flex gap-3.5 border-b border-line-soft px-5 py-4 last:border-b-0">
                       <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[8px] bg-tint text-xs font-semibold tabular-nums text-accent-strong">
@@ -242,7 +251,12 @@ export default async function DoctorPage() {
                         <p className="line-clamp-1 text-sm text-muted">{t.complaint}</p>
                         <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
                           {t.predicted_minutes ? <Tag>±{t.predicted_minutes} mnt</Tag> : null}
-                          {t.is_follow_up ? <Tag>Kontrol</Tag> : null}
+                          {t.visit_purpose ? (
+                            <Tag>{VISIT_PURPOSE_LABEL[t.visit_purpose]}</Tag>
+                          ) : t.is_follow_up ? (
+                            <Tag>Kontrol</Tag>
+                          ) : null}
+                          {t.has_chronic_condition ? <Tag tone="warn">Kronis</Tag> : null}
                           {tAge !== undefined ? <Tag>{tAge} thn</Tag> : null}
                           {!t.checked_in_at ? (
                             <Tag tone="warn">{t.missed_turn_at ? "Terlewat · belum tiba" : "Belum tiba"}</Tag>

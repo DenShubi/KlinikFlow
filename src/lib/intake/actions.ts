@@ -2,7 +2,6 @@
 
 import { redirect } from "next/navigation";
 
-import { ageInYears } from "@/lib/age";
 import {
   clinicAlwaysOpen,
   clinicCloseTimestampMs,
@@ -11,6 +10,8 @@ import {
 import { clinicToday } from "@/lib/clinic-time";
 import { normalizePhone } from "@/lib/phone";
 import { estimateForQueue } from "@/lib/queue/estimator";
+import { FALLBACK_SLOT_MINUTES } from "@/lib/queue/rules";
+import { parseVisitDetails } from "@/lib/queue/visit";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type IntakeState = {
@@ -30,9 +31,12 @@ export async function registerRemote(_prev: IntakeState, formData: FormData): Pr
     serviceDate: String(formData.get("serviceDate") ?? today).trim() || today,
     fullName: String(formData.get("fullName") ?? "").trim().replace(/\s+/g, " "),
     phone: String(formData.get("phone") ?? "").trim(),
-    birthDate: String(formData.get("birthDate") ?? "").trim(),
     complaint: String(formData.get("complaint") ?? "").trim(),
-    isFollowUp: formData.get("isFollowUp") === "on" ? "on" : "",
+    // Visit details (kept so the form can show them again after an error).
+    ageYears: String(formData.get("ageYears") ?? "").trim(),
+    visitPurpose: String(formData.get("visitPurpose") ?? ""),
+    seenBefore: String(formData.get("seenBefore") ?? ""),
+    chronic: String(formData.get("chronic") ?? ""),
   };
   const fail = (error: string): IntakeState => ({ error, values });
 
@@ -45,11 +49,10 @@ export async function registerRemote(_prev: IntakeState, formData: FormData): Pr
   const phone = normalizePhone(values.phone);
   if (!phone) return fail("Nomor WhatsApp wajib diisi agar kami bisa mengabari Anda.");
   if (phone === "invalid") return fail("Nomor WhatsApp tidak valid. Contoh: 0812 3456 7890.");
-  if (values.birthDate && (values.birthDate > today || ageInYears(values.birthDate, today) === undefined)) {
-    return fail("Tanggal lahir tidak valid.");
-  }
   if (values.complaint.length < 3) return fail("Ceritakan keluhan Anda secara singkat.");
   if (values.complaint.length > MAX_COMPLAINT) return fail("Keluhan terlalu panjang (maks. 500 karakter).");
+  const visit = parseVisitDetails(formData);
+  if (!visit.ok) return fail(visit.error);
 
   const admin = createAdminClient();
 
@@ -96,7 +99,7 @@ export async function registerRemote(_prev: IntakeState, formData: FormData): Pr
 
     const lastEndMs = (activeOnDate ?? []).reduce((max, t) => {
       if (!t.estimated_call_at) return max;
-      const endMs = Date.parse(t.estimated_call_at) + (t.predicted_minutes ?? 10) * 60000;
+      const endMs = Date.parse(t.estimated_call_at) + (t.predicted_minutes ?? FALLBACK_SLOT_MINUTES) * 60000;
       return Math.max(max, endMs);
     }, 0);
 
@@ -110,7 +113,7 @@ export async function registerRemote(_prev: IntakeState, formData: FormData): Pr
   if (!patientId) {
     const { data: created, error } = await admin
       .from("patients")
-      .insert({ full_name: values.fullName, phone, birth_date: values.birthDate || null })
+      .insert({ full_name: values.fullName, phone }) // age is stored per visit on the ticket, not as a birth date
       .select("id")
       .single();
     if (error || !created) return fail("Pendaftaran gagal. Coba lagi.");
@@ -120,8 +123,10 @@ export async function registerRemote(_prev: IntakeState, formData: FormData): Pr
   const estimate = await estimateForQueue({
     ticketId: "",
     complaint: values.complaint,
-    patientAgeYears: ageInYears(values.birthDate, values.serviceDate),
-    isFollowUp: values.isFollowUp === "on",
+    patientAgeYears: visit.value.ageYears,
+    visitPurpose: visit.value.visitPurpose,
+    isNewPatient: visit.value.isNewPatient,
+    hasChronicCondition: visit.value.hasChronicCondition,
     doctorId: doctor.id,
   });
 
@@ -130,7 +135,11 @@ export async function registerRemote(_prev: IntakeState, formData: FormData): Pr
     p_patient_id: patientId,
     p_channel: "remote",
     p_complaint: values.complaint,
-    p_is_follow_up: values.isFollowUp === "on",
+    p_is_follow_up: visit.value.visitPurpose === "follow_up",
+    p_visit_purpose: visit.value.visitPurpose,
+    p_is_new_patient: visit.value.isNewPatient,
+    p_has_chronic_condition: visit.value.hasChronicCondition,
+    p_patient_age_years: visit.value.ageYears,
     p_predicted_minutes: estimate.minutes,
     p_prediction_source: estimate.source,
     p_prediction_confidence: estimate.confidence,

@@ -12,3 +12,7 @@ export const MAX_DEFERS = 2;
 
 // A called patient who has not come in after this many minutes is moved back automatically.
 export const ABSENT_AFTER_MINUTES = 5;
+
+// Slot length assumed for a ticket that has no prediction (fallback 5 +
+// changeover 1). Mirrors private.fallback_minutes() in the database.
+export const FALLBACK_SLOT_MINUTES = 6;

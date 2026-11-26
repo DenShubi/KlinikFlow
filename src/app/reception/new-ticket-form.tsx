@@ -4,6 +4,7 @@ import { useActionState, useMemo, useState } from "react";
 
 import { buildEnrichedComplaintFromAnswers, ComplaintClarifier, type ClarifierAnswers } from "@/components/ai";
 import { CheckIcon, PlusIcon } from "@/components/icons";
+import { VisitFields } from "@/components/visit-fields";
 import type { ClarifyQuestion } from "@/lib/ai/clarify-core";
 import { createTicket, type ActionResult } from "@/lib/queue/actions";
 
@@ -149,30 +150,19 @@ function Fields({ doctors, defaultDoctor }: { doctors: ReceptionDoctor[]; defaul
         />
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-1">
-        <label className={LABEL}>
-          Nomor WhatsApp
-          <input
-            name="phone"
-            required
-            type="tel"
-            inputMode="tel"
-            placeholder="0812 3456 7890"
-            className="field"
-          />
-        </label>
-        <label className={LABEL}>
-          <span>
-            Tanggal lahir <span className="font-normal text-muted">(opsional)</span>
-          </span>
-          <input name="birthDate" type="date" className="field" />
-        </label>
-      </div>
-
-      <label className="flex min-h-[44px] cursor-pointer items-center gap-2.5 text-sm">
-        <input type="checkbox" name="isFollowUp" className="h-[18px] w-[18px] accent-[var(--color-accent)]" />
-        Kontrol lanjutan
+      <label className={LABEL}>
+        Nomor WhatsApp
+        <input
+          name="phone"
+          required
+          type="tel"
+          inputMode="tel"
+          placeholder="0812 3456 7890"
+          className="field"
+        />
       </label>
+
+      <VisitFields dense />
     </>
   );
 }

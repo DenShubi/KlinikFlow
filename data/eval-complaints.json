@@ -1,10 +1,11 @@
 {
   "metadata": {
     "name": "KlinikFlow Synthetic Triage Evaluation Set",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "synthetic": true,
-    "source": "Synthetic complaints modeled on November 2026 observations of evening GP sessions in Kediri, East Java (5 to 25 minute consultation range). Contains zero real patient data.",
-    "flatBaselineMinutes": 10
+    "source": "Synthetic complaints modeled on November 2026 observations of evening GP sessions in Kediri, East Java. Contains zero real patient data.",
+    "referenceRanges": "expectedRange comes from a practising GP: routine 1-2 min, mild 2-3 min, moderate 5-20 min (up to 20 with an IV, toddlers under 5 up to about 30), complex or procedure 10-30 min. These are consultation minutes, without patient changeover.",
+    "flatBaselineMinutes": 5
   },
   "cases": [
     {
@@ -12,8 +13,13 @@
       "tier": "short",
       "complaint": "Minta surat keterangan sehat untuk melamar kerja, tidak ada keluhan",
       "patientAgeYears": 23,
-      "isFollowUp": false,
-      "expectedMinutes": 5,
+      "visitPurpose": "certificate",
+      "isNewPatient": true,
+      "hasChronicCondition": false,
+      "expectedRange": [
+        1,
+        2
+      ],
       "notes": "Administrative health certificate, no acute symptoms"
     },
     {
@@ -21,8 +27,13 @@
       "tier": "short",
       "complaint": "Cek tensi rutin dan kontrol singkat obat darah tinggi yang sudah stabil",
       "patientAgeYears": 56,
-      "isFollowUp": true,
-      "expectedMinutes": 5,
+      "visitPurpose": "routine_check",
+      "isNewPatient": false,
+      "hasChronicCondition": true,
+      "expectedRange": [
+        1,
+        2
+      ],
       "notes": "Routine stable hypertension follow-up"
     },
     {
@@ -30,8 +41,13 @@
       "tier": "short",
       "complaint": "Kontrol singkat untuk membaca hasil cek kolesterol dan gula darah puasa kemarin",
       "patientAgeYears": 45,
-      "isFollowUp": true,
-      "expectedMinutes": 6,
+      "visitPurpose": "follow_up",
+      "isNewPatient": false,
+      "hasChronicCondition": true,
+      "expectedRange": [
+        1,
+        2
+      ],
       "notes": "Brief lab result review follow-up"
     },
     {
@@ -39,8 +55,13 @@
       "tier": "short",
       "complaint": "Perpanjangan surat keterangan istirahat kuliah 1 hari, demam sudah turun",
       "patientAgeYears": 20,
-      "isFollowUp": true,
-      "expectedMinutes": 5,
+      "visitPurpose": "certificate",
+      "isNewPatient": false,
+      "hasChronicCondition": false,
+      "expectedRange": [
+        1,
+        2
+      ],
       "notes": "Short follow-up certificate renewal"
     },
     {
@@ -48,8 +69,13 @@
       "tier": "short",
       "complaint": "Routine blood pressure check, no headache or chest pain",
       "patientAgeYears": 49,
-      "isFollowUp": true,
-      "expectedMinutes": 5,
+      "visitPurpose": "routine_check",
+      "isNewPatient": false,
+      "hasChronicCondition": true,
+      "expectedRange": [
+        1,
+        2
+      ],
       "notes": "English routine follow-up check"
     },
     {
@@ -57,8 +83,13 @@
       "tier": "short",
       "complaint": "Kontrol pasca sembuh batuk pilek minggu lalu, keluhan sudah hilang",
       "patientAgeYears": 29,
-      "isFollowUp": true,
-      "expectedMinutes": 6,
+      "visitPurpose": "follow_up",
+      "isNewPatient": false,
+      "hasChronicCondition": false,
+      "expectedRange": [
+        1,
+        2
+      ],
       "notes": "Post-recovery brief check"
     },
     {
@@ -66,8 +97,13 @@
       "tier": "mild",
       "complaint": "Batuk pilek ringan sejak kemarin, tenggorokan agak gatal, tidak sesak",
       "patientAgeYears": 26,
-      "isFollowUp": false,
-      "expectedMinutes": 10,
+      "visitPurpose": "new_complaint",
+      "isNewPatient": false,
+      "hasChronicCondition": false,
+      "expectedRange": [
+        2,
+        3
+      ],
       "notes": "Uncomplicated mild upper respiratory symptoms"
     },
     {
@@ -75,8 +111,13 @@
       "tier": "mild",
       "complaint": "Demam ringan sejak tadi malam disertai badan pegal dan pusing sedikit",
       "patientAgeYears": 32,
-      "isFollowUp": false,
-      "expectedMinutes": 10,
+      "visitPurpose": "new_complaint",
+      "isNewPatient": true,
+      "hasChronicCondition": false,
+      "expectedRange": [
+        2,
+        3
+      ],
       "notes": "1-day mild fever and body aches"
     },
     {
@@ -84,8 +125,13 @@
       "tier": "mild",
       "complaint": "Sakit perut ulu hati perih dan mual ringan setelah telat makan",
       "patientAgeYears": 24,
-      "isFollowUp": false,
-      "expectedMinutes": 11,
+      "visitPurpose": "new_complaint",
+      "isNewPatient": false,
+      "hasChronicCondition": false,
+      "expectedRange": [
+        2,
+        3
+      ],
       "notes": "Mild epigastric discomfort"
     },
     {
@@ -93,8 +139,13 @@
       "tier": "mild",
       "complaint": "Kulit tangan dan leher gatal bentol kemerahan sejak pagi setelah makan udang",
       "patientAgeYears": 21,
-      "isFollowUp": false,
-      "expectedMinutes": 10,
+      "visitPurpose": "new_complaint",
+      "isNewPatient": false,
+      "hasChronicCondition": false,
+      "expectedRange": [
+        2,
+        3
+      ],
       "notes": "Mild localized skin itching without breathing difficulty"
     },
     {
@@ -102,8 +153,13 @@
       "tier": "mild",
       "complaint": "Nyeri menelan sejak 2 hari dan suara agak serak, masih bisa makan biasa",
       "patientAgeYears": 35,
-      "isFollowUp": false,
-      "expectedMinutes": 12,
+      "visitPurpose": "new_complaint",
+      "isNewPatient": false,
+      "hasChronicCondition": false,
+      "expectedRange": [
+        2,
+        3
+      ],
       "notes": "Mild sore throat for 2 days"
     },
     {
@@ -111,8 +167,13 @@
       "tier": "mild",
       "complaint": "Mild cold, runny nose, and low-grade fever since yesterday evening",
       "patientAgeYears": 28,
-      "isFollowUp": false,
-      "expectedMinutes": 10,
+      "visitPurpose": "new_complaint",
+      "isNewPatient": true,
+      "hasChronicCondition": false,
+      "expectedRange": [
+        2,
+        3
+      ],
       "notes": "English mild viral-like complaint"
     },
     {
@@ -120,8 +181,13 @@
       "tier": "moderate",
       "complaint": "Demam tinggi sudah 4 hari naik turun disertai batuk berdahak dan napas terasa agak berat",
       "patientAgeYears": 38,
-      "isFollowUp": false,
-      "expectedMinutes": 18,
+      "visitPurpose": "new_complaint",
+      "isNewPatient": false,
+      "hasChronicCondition": false,
+      "expectedRange": [
+        5,
+        20
+      ],
       "notes": "Prolonged high fever >3 days with respiratory symptoms"
     },
     {
@@ -129,8 +195,13 @@
       "tier": "moderate",
       "complaint": "Anak demam sejak kemarin sore, muntah 4 kali dan tidak mau makan atau minum banyak",
       "patientAgeYears": 5,
-      "isFollowUp": false,
-      "expectedMinutes": 18,
+      "visitPurpose": "new_complaint",
+      "isNewPatient": true,
+      "hasChronicCondition": false,
+      "expectedRange": [
+        5,
+        20
+      ],
       "notes": "Pediatric fever with repeated vomiting"
     },
     {
@@ -138,8 +209,13 @@
       "tier": "moderate",
       "complaint": "Diare cair lebih dari 6 kali sejak kemarin disertai mulas hebat dan badan terasa lemas",
       "patientAgeYears": 33,
-      "isFollowUp": false,
-      "expectedMinutes": 16,
+      "visitPurpose": "new_complaint",
+      "isNewPatient": false,
+      "hasChronicCondition": false,
+      "expectedRange": [
+        5,
+        20
+      ],
       "notes": "Frequent watery diarrhea with fatigue"
     },
     {
@@ -147,8 +223,13 @@
       "tier": "moderate",
       "complaint": "Pusing berputar sejak bangun tidur disertai mual dan sulit berdiri seimbang",
       "patientAgeYears": 61,
-      "isFollowUp": false,
-      "expectedMinutes": 17,
+      "visitPurpose": "new_complaint",
+      "isNewPatient": false,
+      "hasChronicCondition": false,
+      "expectedRange": [
+        5,
+        20
+      ],
       "notes": "Spinning dizziness with nausea in older adult"
     },
     {
@@ -156,8 +237,13 @@
       "tier": "moderate",
       "complaint": "Nyeri dan perih setiap buang air kecil sejak 3 hari disertai demam dan pegal pinggang",
       "patientAgeYears": 41,
-      "isFollowUp": false,
-      "expectedMinutes": 16,
+      "visitPurpose": "new_complaint",
+      "isNewPatient": false,
+      "hasChronicCondition": false,
+      "expectedRange": [
+        5,
+        20
+      ],
       "notes": "Urinary discomfort with fever and flank ache"
     },
     {
@@ -165,8 +251,13 @@
       "tier": "moderate",
       "complaint": "Batuk berdahak sudah hampir 2 minggu tidak sembuh, nafsu makan turun dan sering berkeringat malam",
       "patientAgeYears": 47,
-      "isFollowUp": false,
-      "expectedMinutes": 19,
+      "visitPurpose": "new_complaint",
+      "isNewPatient": false,
+      "hasChronicCondition": false,
+      "expectedRange": [
+        5,
+        20
+      ],
       "notes": "Persistent 2-week cough requiring thorough history"
     },
     {
@@ -174,8 +265,13 @@
       "tier": "complex",
       "complaint": "Perawatan luka lecet dalam di lutut pasca jatuh dari motor dan perlu ganti perban",
       "patientAgeYears": 34,
-      "isFollowUp": true,
-      "expectedMinutes": 22,
+      "visitPurpose": "procedure",
+      "isNewPatient": false,
+      "hasChronicCondition": false,
+      "expectedRange": [
+        10,
+        30
+      ],
       "notes": "Wound cleaning and dressing change procedure"
     },
     {
@@ -183,8 +279,13 @@
       "tier": "complex",
       "complaint": "Jari tangan teriris pisau dapur 1 jam lalu, luka masih merembes darah dan perlu dibersihkan serta dibalut",
       "patientAgeYears": 29,
-      "isFollowUp": false,
-      "expectedMinutes": 23,
+      "visitPurpose": "procedure",
+      "isNewPatient": true,
+      "hasChronicCondition": false,
+      "expectedRange": [
+        10,
+        30
+      ],
       "notes": "Acute laceration cleaning and dressing"
     },
     {
@@ -192,8 +293,13 @@
       "tier": "complex",
       "complaint": "Lansia mengeluh pusing sering kambuh, kaki kesemutan, tidur susah, dan ingin evaluasi keluhan tensi serta gula sekaligus",
       "patientAgeYears": 71,
-      "isFollowUp": true,
-      "expectedMinutes": 24,
+      "visitPurpose": "follow_up",
+      "isNewPatient": false,
+      "hasChronicCondition": true,
+      "expectedRange": [
+        10,
+        30
+      ],
       "notes": "Elderly patient with multiple chronic complaints"
     },
     {
@@ -201,8 +307,13 @@
       "tier": "complex",
       "complaint": "Nyeri dada sebelah kiri sejak pagi disertai sesak napas berat, keringat dingin, dan pusing",
       "patientAgeYears": 59,
-      "isFollowUp": false,
-      "expectedMinutes": 25,
+      "visitPurpose": "new_complaint",
+      "isNewPatient": false,
+      "hasChronicCondition": false,
+      "expectedRange": [
+        10,
+        30
+      ],
       "notes": "High-priority chest pain and severe dyspnea triage"
     },
     {
@@ -210,8 +321,13 @@
       "tier": "complex",
       "complaint": "Sesak napas kumat sejak sore, napas berbunyi mengi dan sulit berbicara panjang",
       "patientAgeYears": 19,
-      "isFollowUp": false,
-      "expectedMinutes": 24,
+      "visitPurpose": "new_complaint",
+      "isNewPatient": true,
+      "hasChronicCondition": true,
+      "expectedRange": [
+        10,
+        30
+      ],
       "notes": "Acute wheezing and respiratory distress"
     },
     {
@@ -219,8 +335,13 @@
       "tier": "complex",
       "complaint": "Luka di telapak kaki tidak kunjung kering sejak 1 minggu, bengkak kemerahan, dan pasien punya riwayat gula tinggi",
       "patientAgeYears": 64,
-      "isFollowUp": false,
-      "expectedMinutes": 25,
+      "visitPurpose": "procedure",
+      "isNewPatient": false,
+      "hasChronicCondition": true,
+      "expectedRange": [
+        10,
+        30
+      ],
       "notes": "Non-healing foot wound with swelling and history of high blood sugar"
     }
   ]
