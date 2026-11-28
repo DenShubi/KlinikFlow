@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import { useT } from "@/components/i18n/provider";
 import { ClockIcon } from "@/components/icons";
 import { PrintLabel, Ticket } from "@/components/ticket";
 import { createClient } from "@/lib/supabase/client";
@@ -15,6 +16,7 @@ const POLL_MS = 60_000;
 // (an opacity fade, kept even with reduced motion: nothing moves);
 // swipe, the arrow keys or the dots switch doctors.
 export function DoctorCarousel({ doctors }: { doctors: BoardDoctor[] }) {
+  const t = useT().board;
   const router = useRouter();
   const [index, setIndex] = useState(0);
   const touchX = useRef<number | null>(null);
@@ -63,7 +65,7 @@ export function DoctorCarousel({ doctors }: { doctors: BoardDoctor[] }) {
         tabIndex={0}
         role="region"
         aria-roledescription="carousel"
-        aria-label="Antrean tiap dokter saat ini"
+        aria-label={t.regionLabel}
         onKeyDown={onKeyDown}
         onTouchStart={(e) => (touchX.current = e.touches[0].clientX)}
         onTouchEnd={onTouchEnd}
@@ -74,7 +76,7 @@ export function DoctorCarousel({ doctors }: { doctors: BoardDoctor[] }) {
             key={d.id}
             role="group"
             aria-roledescription="slide"
-            aria-label={`${i + 1} dari ${count}: ${d.name}`}
+            aria-label={t.slideLabel(i + 1, count, d.name)}
             aria-hidden={i !== current}
             inert={i !== current}
             className={`fade-safe [grid-area:1/1] transition-opacity duration-[var(--dur-3)] ease-[var(--ease-out)] ${
@@ -87,13 +89,13 @@ export function DoctorCarousel({ doctors }: { doctors: BoardDoctor[] }) {
       </div>
 
       {count > 1 ? (
-        <div className="mt-2 flex justify-center gap-1.5" aria-label="Pilih dokter">
+        <div className="mt-2 flex justify-center gap-1.5" aria-label={t.dotsLabel}>
           {doctors.map((d, i) => (
             <button
               key={d.id}
               type="button"
               onClick={() => setIndex(i)}
-              aria-label={`Dokter ${d.prefix}: ${d.name}`}
+              aria-label={t.dotLabel(d.prefix, d.name)}
               aria-current={i === current ? "true" : undefined}
               className="grid h-6 min-w-6 place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-accent"
             >
@@ -111,21 +113,23 @@ export function DoctorCarousel({ doctors }: { doctors: BoardDoctor[] }) {
 }
 
 function DoctorTicket({ d }: { d: BoardDoctor }) {
+  const dict = useT();
+  const t = dict.board;
   const open = d.availability.open;
   return (
     <Ticket
-      label={`Antrean ${d.name}`}
+      label={t.ticketLabel(d.name)}
       stub={
         <div className="flex flex-col gap-4 px-6 pb-6 pt-6">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <p className="text-xs text-muted">Menunggu</p>
-              <p className="mt-1 text-2xl font-bold tabular-nums tracking-[-0.02em]">{d.waiting} orang</p>
+              <p className="text-xs text-muted">{t.waiting}</p>
+              <p className="mt-1 text-2xl font-bold tabular-nums tracking-[-0.02em]">{dict.ticket.people(d.waiting)}</p>
             </div>
             <div>
-              <p className="text-xs text-muted">Antre sekarang</p>
+              <p className="text-xs text-muted">{t.waitNow}</p>
               <p className="mt-1 text-2xl font-bold tabular-nums tracking-[-0.02em]">
-                {!open ? "–" : d.waiting === 0 ? "Langsung" : `±${d.waitMinutes} mnt`}
+                {!open ? "–" : d.waiting === 0 ? t.noWait : dict.common.min(d.waitMinutes)}
               </p>
             </div>
           </div>
@@ -141,11 +145,11 @@ function DoctorTicket({ d }: { d: BoardDoctor }) {
     >
       <div className="flex flex-col gap-5 px-6 pb-7 pt-6">
         <div className="flex items-center justify-between">
-          <PrintLabel>Sedang dilayani</PrintLabel>
+          <PrintLabel>{t.nowServing}</PrintLabel>
           <span
             className={`rounded-full px-2.5 py-1 text-xs font-semibold ${open ? "bg-ok-soft text-ok" : "bg-line-soft text-muted"}`}
           >
-            {open ? "Buka" : "Tutup"}
+            {open ? t.open : t.closed}
           </span>
         </div>
         <p

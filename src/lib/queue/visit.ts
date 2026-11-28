@@ -1,44 +1,34 @@
 import type { AgeGroup, VisitPurpose } from "@/lib/ai/estimate-core";
+import type { Locale } from "@/lib/i18n/config";
+import { DICTIONARIES } from "@/lib/i18n/dictionaries";
 
 // Visit details asked on both intake forms (patient and receptionist). They
 // are coarse and non-identifying: they go to the AI estimator and onto the
 // ticket. Age is asked as a group, not a number or birth date, and gender is
-// deliberately not asked (data minimisation).
+// deliberately not asked (data minimisation). Labels live in the
+// dictionaries (src/lib/i18n/dictionaries, "visit").
 
-export const AGE_GROUP_OPTIONS: Array<{ value: AgeGroup; label: string; hint: string }> = [
-  { value: "toddler", label: "Balita", hint: "0–4" },
-  { value: "child", label: "Anak", hint: "5–12" },
-  { value: "teen", label: "Remaja", hint: "13–17" },
-  { value: "adult", label: "Dewasa", hint: "18–59" },
-  { value: "elderly", label: "Lansia", hint: "60+" },
-];
-
-export const AGE_GROUP_LABEL = Object.fromEntries(AGE_GROUP_OPTIONS.map((o) => [o.value, o.label])) as Record<AgeGroup, string>;
-
-export const VISIT_PURPOSE_OPTIONS: Array<{ value: VisitPurpose; label: string; hint?: string }> = [
-  { value: "new_complaint", label: "Periksa keluhan baru" },
-  { value: "follow_up", label: "Kontrol atau lanjutan pengobatan" },
-  { value: "routine_check", label: "Cek rutin", hint: "tensi, gula, kolesterol" },
-  { value: "certificate", label: "Surat keterangan", hint: "sehat, sakit, rujukan" },
-  { value: "procedure", label: "Tindakan", hint: "rawat luka, ganti perban, suntik" },
-];
-
-// Short labels for staff screens.
-export const VISIT_PURPOSE_LABEL: Record<VisitPurpose, string> = {
-  new_complaint: "Keluhan baru",
-  follow_up: "Kontrol",
-  routine_check: "Cek rutin",
-  certificate: "Surat keterangan",
-  procedure: "Tindakan",
+export const AGE_GROUP_RANGES: Record<AgeGroup, string> = {
+  toddler: "0–4",
+  child: "5–12",
+  teen: "13–17",
+  adult: "18–59",
+  elderly: "60+",
 };
 
+// Same values as AGE_GROUPS and VISIT_PURPOSES in estimate-core.ts, repeated
+// here (type-checked) so the browser bundle does not import the AI module.
+export const AGE_GROUPS = ["toddler", "child", "teen", "adult", "elderly"] as const satisfies readonly AgeGroup[];
+export const VISIT_PURPOSES = [
+  "new_complaint",
+  "follow_up",
+  "routine_check",
+  "certificate",
+  "procedure",
+] as const satisfies readonly VisitPurpose[];
+
 // What the patient picks; only "has a chronic condition: yes/no" is kept.
-export const CHRONIC_OPTIONS = [
-  { value: "hipertensi", label: "Darah tinggi" },
-  { value: "diabetes", label: "Diabetes" },
-  { value: "lainnya", label: "Lainnya" },
-  { value: "tidak", label: "Tidak" },
-] as const;
+export const CHRONIC_VALUES = ["hipertensi", "diabetes", "lainnya", "tidak"] as const;
 
 export type VisitDetails = {
   ageGroup: AgeGroup;
@@ -48,20 +38,23 @@ export type VisitDetails = {
 
 // Reads and validates the visit fields of either form. Field names:
 // ageGroup, visitPurpose, chronic (optional).
-export function parseVisitDetails(formData: FormData): { ok: true; value: VisitDetails } | { ok: false; error: string } {
-  const group = AGE_GROUP_OPTIONS.find((o) => o.value === String(formData.get("ageGroup") ?? ""));
-  if (!group) return { ok: false, error: "Pilih kelompok usia pasien." };
+export function parseVisitDetails(
+  formData: FormData,
+  locale: Locale = "id",
+): { ok: true; value: VisitDetails } | { ok: false; error: string } {
+  const errors = DICTIONARIES[locale].visit.errors;
+  const group = AGE_GROUPS.find((g) => g === String(formData.get("ageGroup") ?? ""));
+  if (!group) return { ok: false, error: errors.pickAge };
 
-  const purpose = String(formData.get("visitPurpose") ?? "");
-  const option = VISIT_PURPOSE_OPTIONS.find((o) => o.value === purpose);
-  if (!option) return { ok: false, error: "Pilih tujuan kunjungan." };
+  const purpose = VISIT_PURPOSES.find((p) => p === String(formData.get("visitPurpose") ?? ""));
+  if (!purpose) return { ok: false, error: errors.pickPurpose };
 
   const chronic = String(formData.get("chronic") ?? "");
   const hasChronicCondition =
-    chronic === "" ? undefined : chronic === "tidak" ? false : CHRONIC_OPTIONS.some((o) => o.value === chronic) ? true : undefined;
+    chronic === "" ? undefined : chronic === "tidak" ? false : (CHRONIC_VALUES as readonly string[]).includes(chronic) ? true : undefined;
 
   return {
     ok: true,
-    value: { ageGroup: group.value, visitPurpose: option.value, hasChronicCondition },
+    value: { ageGroup: group, visitPurpose: purpose, hasChronicCondition },
   };
 }

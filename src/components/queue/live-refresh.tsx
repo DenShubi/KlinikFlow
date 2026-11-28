@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { useT } from "@/components/i18n/provider";
 import { createClient } from "@/lib/supabase/client";
 
 type Status = "connecting" | "live" | "offline";
@@ -12,6 +13,7 @@ type Status = "connecting" | "live" | "offline";
 // Realtime applies row-level security, so a doctor only hears about their own queue.
 // Visible only when the connection drops, since that is when staff must act.
 export function LiveRefresh({ serviceDate }: { serviceDate: string }) {
+  const t = useT();
   const router = useRouter();
   const [status, setStatus] = useState<Status>("connecting");
 
@@ -54,7 +56,7 @@ export function LiveRefresh({ serviceDate }: { serviceDate: string }) {
       aria-live="polite"
       className="btn btn-sm bg-warn-soft text-warn hover:brightness-95"
     >
-      Antrean tidak terbarui · Muat ulang
+      {t.staff.notUpdating}
     </button>
   );
 }

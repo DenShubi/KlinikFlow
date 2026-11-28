@@ -4,10 +4,11 @@ import { Brand } from "@/components/brand";
 import { LogOutIcon } from "@/components/icons";
 import { signOut } from "@/lib/auth/actions";
 import type { Staff } from "@/lib/auth/dal";
-import { ROLE_LABEL } from "@/lib/auth/roles";
+import { getDictionary } from "@/lib/i18n/server";
 
 // Full-width bar on staff screens: brand, who is signed in, sign out.
-export function StaffHeader({ staff, href }: { staff: Staff; href: string }) {
+export async function StaffHeader({ staff, href }: { staff: Staff; href: string }) {
+  const t = (await getDictionary()).staff;
   const initials = staff.fullName
     .replace(/^(dr|drg)\.?\s+/i, "")
     .split(/\s+/)
@@ -21,7 +22,7 @@ export function StaffHeader({ staff, href }: { staff: Staff; href: string }) {
         <div className="flex items-center gap-3">
           <Brand href={href} />
           <span className="hidden rounded-full bg-tint px-2.5 py-1 text-xs font-semibold text-accent-strong sm:inline">
-            {ROLE_LABEL[staff.role]}
+            {t.roles[staff.role]}
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -34,7 +35,7 @@ export function StaffHeader({ staff, href }: { staff: Staff; href: string }) {
           <form action={signOut}>
             <button type="submit" className="btn btn-quiet btn-sm min-h-[40px]">
               <LogOutIcon size={16} />
-              Keluar
+              {t.signOut}
             </button>
           </form>
         </div>

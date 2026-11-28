@@ -9,7 +9,7 @@ Single source of truth for the UI. If CSS or components drift from this file, th
 - **Primary actions:** patient → take a number, then know when to come. Doctor → call / start / finish the next patient. Receptionist → add a walk-in, mark a remote patient as arrived.
 - **Adjectives:** calm, trustworthy, clear, warm, efficient.
 - **Essence:** printed, calm, certain.
-- **Copy rule:** say what the person should do, never how the system works. No latency, provider, model, confidence or "estimate source" text on user screens. Short sentences, Bahasa Indonesia.
+- **Copy rule:** say what the person should do, never how the system works. No latency, provider, model, confidence or "estimate source" text on user screens. Short sentences, Bahasa Indonesia by default; English through the language switch (flags, bottom left). Every user-facing string lives in both dictionaries in `src/lib/i18n/dictionaries`, never inline.
 
 ## Aesthetic and signature move
 

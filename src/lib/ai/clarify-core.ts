@@ -63,7 +63,7 @@ const SYSTEM_INSTRUCTION = [
   "Generate only as many short, practical multiple-choice follow-up questions as genuinely help the GP understand the complaint (between 0 and 4 questions: typically 1-2 for simple complaints, 3-4 for vague or multi-symptom complaints, covering things like how it feels, duration if not stated, location, triggers, or key accompanying symptoms).",
   "",
   "RULES:",
-  "- Respond in the same language as the patient (usually everyday, natural Bahasa Indonesia).",
+  "- Write the questions and options in the language given by the `language` field: \"id\" = everyday, natural Bahasa Indonesia; \"en\" = plain English. Use that language even if the complaint is written in another one.",
   "- Each question must be short (max 8 words) and easy for elderly or unwell patients to understand.",
   "- Each question must have 3 to 4 concise options (2 to 5 words each).",
   "- Do NOT ask about duration if the patient already stated how long it lasted.",
@@ -156,7 +156,8 @@ export function parseClarifyResponse(rawText: string, modelId: string): ClarifyO
   };
 }
 
-export async function clarifyComplaint(complaint: string): Promise<ClarifyOutput> {
+// language: the interface language the patient chose ("id" or "en").
+export async function clarifyComplaint(complaint: string, language: "id" | "en" = "id"): Promise<ClarifyOutput> {
   const trimmed = typeof complaint === "string" ? complaint.trim().slice(0, 300) : "";
 
   if (trimmed.length < 3 || ROUTINE_REGEX.test(trimmed)) {
@@ -185,7 +186,7 @@ export async function clarifyComplaint(complaint: string): Promise<ClarifyOutput
     const thinkingConfig = getThinkingConfig(modelId);
     const requestPromise = ai.models.generateContent({
       model: modelId,
-      contents: JSON.stringify({ complaint: trimmed }),
+      contents: JSON.stringify({ complaint: trimmed, language }),
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
         temperature: 0.3,

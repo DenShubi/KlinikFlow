@@ -3,6 +3,7 @@
 import { useActionState, useMemo, useState } from "react";
 
 import { buildEnrichedComplaintFromAnswers, ComplaintClarifier, type ClarifierAnswers } from "@/components/ai";
+import { useT } from "@/components/i18n/provider";
 import { CheckIcon, PlusIcon } from "@/components/icons";
 import { VisitFields } from "@/components/visit-fields";
 import type { ClarifyQuestion } from "@/lib/ai/clarify-core";
@@ -24,12 +25,14 @@ export type ReceptionDoctor = {
 // marked as arrived ("Tiba") when they are in the waiting room, because a
 // patient may register and go home while the queue is long.
 export function NewTicketForm({ doctors }: { doctors: ReceptionDoctor[] }) {
+  const dict = useT();
+  const t = dict.reception;
   const [state, formAction, pending] = useActionState<ActionResult, FormData>(createTicket, { ok: true });
   const defaultDoctor = (doctors.find((d) => d.open) ?? doctors[0])?.id;
 
   return (
     <form action={formAction} className="card flex flex-col gap-5 p-5 sm:p-6">
-      <h2 className="text-[17px] font-bold">Pasien baru</h2>
+      <h2 className="text-[17px] font-bold">{t.newPatient}</h2>
 
       {/* New ticket -> fresh fields (complaint, clarifier answers). */}
       <Fields key={state.ticket?.code ?? "new"} doctors={doctors} defaultDoctor={defaultDoctor} />
@@ -41,12 +44,12 @@ export function NewTicketForm({ doctors }: { doctors: ReceptionDoctor[] }) {
               aria-hidden
               className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white motion-reduce:animate-none"
             />
-            Membuat tiket…
+            {dict.common.creatingTicket}
           </>
         ) : (
           <>
             <PlusIcon size={18} />
-            Buat tiket
+            {t.submit}
           </>
         )}
       </button>
@@ -58,12 +61,12 @@ export function NewTicketForm({ doctors }: { doctors: ReceptionDoctor[] }) {
             {state.message}
           </p>
           <p className="text-ink">
-            Perkiraan periksa <strong className="tabular-nums">±{state.ticket.minutes} menit</strong>. Tekan{" "}
-            <strong>Tandai tiba</strong> saat pasien ada di ruang tunggu.
+            {t.expected} <strong className="tabular-nums">{t.minutes(state.ticket.minutes)}</strong>. {t.press}{" "}
+            <strong>{t.checkIn}</strong> {t.whenArrived}
           </p>
           {state.ticket.summary ? (
             <div className="rounded-[10px] bg-surface px-3 py-2.5">
-              <p className="text-xs font-semibold text-muted">Ringkasan keluhan</p>
+              <p className="text-xs font-semibold text-muted">{t.summary}</p>
               <p className="mt-0.5 text-ink">{state.ticket.summary}</p>
             </div>
           ) : null}
@@ -79,6 +82,7 @@ export function NewTicketForm({ doctors }: { doctors: ReceptionDoctor[] }) {
 }
 
 function Fields({ doctors, defaultDoctor }: { doctors: ReceptionDoctor[]; defaultDoctor?: string }) {
+  const t = useT().reception;
   const [complaint, setComplaint] = useState("");
   const [questions, setQuestions] = useState<ClarifyQuestion[]>([]);
   const [answers, setAnswers] = useState<ClarifierAnswers>({});
@@ -111,26 +115,26 @@ function Fields({ doctors, defaultDoctor }: { doctors: ReceptionDoctor[]; defaul
   return (
     <>
       <label className={LABEL}>
-        Dokter
+        {t.doctor}
         <select name="doctorId" required className="field" defaultValue={defaultDoctor}>
           {doctors.map((d) => (
             <option key={d.id} value={d.id}>
               {d.prefix} · {d.name} · {d.specialty}
               {d.room ? ` (${d.room})` : ""}
-              {d.open ? "" : " · tutup"}
+              {d.open ? "" : t.closedSuffix}
             </option>
           ))}
         </select>
       </label>
 
       <label className={LABEL}>
-        Nama pasien
+        {t.patientName}
         <input name="fullName" required autoComplete="off" className="field" />
       </label>
 
       <div className="flex flex-col gap-3">
         <label className={LABEL}>
-          Keluhan
+          {t.complaint}
           <textarea
             required
             rows={2}
@@ -151,7 +155,7 @@ function Fields({ doctors, defaultDoctor }: { doctors: ReceptionDoctor[]; defaul
       </div>
 
       <label className={LABEL}>
-        Nomor WhatsApp
+        {t.whatsapp}
         <input
           name="phone"
           required

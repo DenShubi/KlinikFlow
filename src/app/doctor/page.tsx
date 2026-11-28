@@ -8,17 +8,17 @@ import { LiveRefresh } from "@/components/queue/live-refresh";
 import { PageTitle, StaffHeader } from "@/components/staff-header";
 import { PrintLabel, Ticket } from "@/components/ticket";
 import { ageInYears } from "@/lib/age";
-import { AGE_GROUP_LABEL, VISIT_PURPOSE_LABEL } from "@/lib/queue/visit";
 import { requireStaff } from "@/lib/auth/dal";
 import { clinicToday, formatClinicDate, formatClinicTime, minutesUntil } from "@/lib/clinic-time";
 import { callNext, finishConsultation, markAbsent, startConsultation } from "@/lib/queue/actions";
 import { ticketCode } from "@/lib/queue/labels";
-import { ABSENT_AFTER_MINUTES, FALLBACK_SLOT_MINUTES, MAX_DEFERS } from "@/lib/queue/rules";
+import { ABSENT_AFTER_MINUTES, FALLBACK_SLOT_MINUTES, MAX_DEFERS, REJOIN_OFFSET } from "@/lib/queue/rules";
+import { getDictionary, getLocale } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata: Metadata = {
-  title: "Dokter · KlinikFlow",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getDictionary()).meta.doctor };
+}
 
 
 // Doctor dashboard: today's own queue only (row-level security returns
@@ -27,15 +27,18 @@ export default async function DoctorPage() {
   const staff = await requireStaff("doctor");
   const supabase = await createClient();
   const today = clinicToday();
+  const locale = await getLocale();
+  const dict = await getDictionary();
+  const tr = dict.doctor;
 
   if (!staff.doctorId) {
     return (
       <>
         <StaffHeader staff={staff} href="/doctor" />
         <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
-          <PageTitle title="Antrean saya" />
+          <PageTitle title={tr.title} />
           <p className="rounded-[10px] bg-warn-soft px-4 py-3 text-sm text-warn">
-            Akun ini belum terhubung ke data dokter. Hubungi admin klinik.
+            {tr.notLinked}
           </p>
         </main>
       </>
@@ -78,12 +81,12 @@ export default async function DoctorPage() {
     : null;
 
   const state = inConsultation ? "consult" : called ? "called" : "next";
-  const stateLabel = { consult: "Sedang diperiksa", called: "Dipanggil", next: "Berikutnya" }[state];
+  const stateLabel = { consult: tr.stateConsult, called: tr.stateCalled, next: tr.stateNext }[state];
   // Age group from the intake form (per visit); older rows fall back to the birth date.
-  const ageLabel = (t: { age_group: keyof typeof AGE_GROUP_LABEL | null; patients: { birth_date: string | null } | null }) => {
-    if (t.age_group) return AGE_GROUP_LABEL[t.age_group];
+  const ageLabel = (t: { age_group: keyof typeof dict.visit.ageGroups | null; patients: { birth_date: string | null } | null }) => {
+    if (t.age_group) return dict.visit.ageGroups[t.age_group];
     const years = ageInYears(t.patients?.birth_date, today);
-    return years === undefined ? undefined : `${years} thn`;
+    return years === undefined ? undefined : tr.years(years);
   };
   const age = shown ? ageLabel(shown) : undefined;
   const summary = shown?.ai_summary?.trim();
@@ -93,38 +96,38 @@ export default async function DoctorPage() {
       <StaffHeader staff={staff} href="/doctor" />
       <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
         <PageTitle
-          title="Antrean saya"
-          sub={`${doctor?.specialty ?? "Dokter Umum"} · ${doctor?.room ?? "Ruang periksa"} · ${formatClinicDate(today)}`}
+          title={tr.title}
+          sub={`${doctor?.specialty ?? tr.defaultSpecialty} · ${doctor?.room ?? tr.defaultRoom} · ${formatClinicDate(today, locale)}`}
           aside={<LiveRefresh serviceDate={today} />}
         />
 
         {error ? (
           <p role="alert" className="rounded-[10px] bg-danger-soft px-4 py-3 text-sm text-danger">
-            Antrean gagal dimuat. Muat ulang halaman.
+            {dict.common.loadError}
           </p>
         ) : null}
 
-        <section aria-label="Ringkasan hari ini" className="card grid grid-cols-2 lg:grid-cols-4">
-          <Stat label="Menunggu" value={String(waiting.length)} note={`${arrived.length} sudah hadir`} />
-          <Stat label="Selesai" value={String(done.length)} note="pasien hari ini" />
-          <Stat label="Rata-rata periksa" value={avgActual === null ? "–" : `${avgActual} mnt`} note="per pasien" />
+        <section aria-label={tr.summaryLabel} className="card grid grid-cols-2 lg:grid-cols-4">
+          <Stat label={tr.statWaiting} value={String(waiting.length)} note={tr.statArrived(arrived.length)} />
+          <Stat label={tr.statDone} value={String(done.length)} note={tr.statDoneNote} />
+          <Stat label={tr.statAvg} value={avgActual === null ? "–" : tr.minutes(avgActual)} note={tr.statAvgNote} />
           <Stat
-            label="Antrean selesai"
-            value={queueEnds ? formatClinicTime(queueEnds) : "–"}
-            note={queueEnds ? `±${minutesUntil(queueEnds)} mnt lagi` : "tidak ada antrean"}
+            label={tr.statEnds}
+            value={queueEnds ? formatClinicTime(queueEnds, locale) : "–"}
+            note={queueEnds ? tr.statEndsNote(minutesUntil(queueEnds)) : tr.statNoQueue}
           />
         </section>
 
         <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
           <Ticket
-            label="Pasien saat ini"
+            label={tr.currentPatient}
             stubTone={state === "called" ? "accent" : state === "consult" ? "ink" : "plain"}
             stub={
               <div className="px-6 pb-6 pt-6">
                 {inConsultation ? (
                   <ActionButton
                     action={finishConsultation.bind(null, inConsultation.id)}
-                    label="Selesai periksa"
+                    label={tr.finish}
                     size="lg"
                     className="w-full"
                   />
@@ -132,26 +135,26 @@ export default async function DoctorPage() {
                   <div className="flex flex-col gap-2.5">
                     <ActionButton
                       action={startConsultation.bind(null, called.id)}
-                      label="Pasien masuk · Mulai periksa"
+                      label={tr.start}
                       variant="onAccent"
                       size="lg"
                       className="w-full"
                     />
                     <ActionButton
                       action={markAbsent.bind(null, called.id)}
-                      label={called.defer_count >= MAX_DEFERS ? "Tidak hadir · keluarkan dari antrean" : "Tidak hadir · mundurkan 2 giliran"}
+                      label={called.defer_count >= MAX_DEFERS ? tr.absentRemove : tr.absentDefer(REJOIN_OFFSET)}
                       variant="secondary"
                       className="w-full"
                     />
                     <p className="text-center text-xs text-white/80">
-                      {called.defer_count > 0 ? `Sudah ditunda ${called.defer_count}×. ` : ""}
-                      Otomatis dimundurkan jika belum masuk dalam {ABSENT_AFTER_MINUTES} menit.
+                      {called.defer_count > 0 ? tr.deferredTimes(called.defer_count) : ""}
+                      {tr.autoDefer(ABSENT_AFTER_MINUTES)}
                     </p>
                   </div>
                 ) : (
                   <ActionButton
                     action={callNext.bind(null, staff.doctorId)}
-                    label={next ? `Panggil ${ticketCode(prefix, next.ticket_number)}` : "Belum ada yang bisa dipanggil"}
+                    label={next ? tr.callNext(ticketCode(prefix, next.ticket_number)) : tr.nobodyToCall}
                     disabled={!next}
                     size="lg"
                     className="w-full"
@@ -169,7 +172,7 @@ export default async function DoctorPage() {
                   </span>
                 ) : called?.called_at ? (
                   <span className="flex items-baseline gap-1.5 text-sm text-muted">
-                    menunggu <span className="text-lg font-bold"><ElapsedTimer since={called.called_at} /></span>
+                    {tr.waitingFor} <span className="text-lg font-bold"><ElapsedTimer since={called.called_at} /></span>
                   </span>
                 ) : null}
               </div>
@@ -184,55 +187,53 @@ export default async function DoctorPage() {
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       <Tag>
                         {shown.visit_purpose
-                          ? VISIT_PURPOSE_LABEL[shown.visit_purpose]
+                          ? dict.visit.purposeShort[shown.visit_purpose]
                           : shown.is_follow_up
-                            ? "Kontrol"
-                            : "Kunjungan baru"}
+                            ? dict.visit.purposeShort.follow_up
+                            : tr.newVisit}
                       </Tag>
                       {age ? <Tag>{age}</Tag> : null}
-                      {shown.has_chronic_condition ? <Tag tone="warn">Penyakit kronis</Tag> : null}
-                      {shown.predicted_minutes ? <Tag>±{shown.predicted_minutes} mnt</Tag> : null}
+                      {shown.has_chronic_condition ? <Tag tone="warn">{tr.chronic}</Tag> : null}
+                      {shown.predicted_minutes ? <Tag>{dict.common.min(shown.predicted_minutes)}</Tag> : null}
                     </div>
                   </div>
 
                   <div className="rounded-[14px] bg-canvas p-4 shadow-[inset_0_0_0_1px_var(--color-line-soft)]">
                     <p className="flex items-center gap-1.5 text-xs font-semibold text-muted">
                       {summary ? <SparkIcon size={14} className="text-accent" /> : null}
-                      Keluhan
+                      {tr.complaint}
                     </p>
                     <p className="mt-1.5 text-[15px] leading-relaxed">{summary || shown.complaint}</p>
                     {summary && summary !== shown.complaint.trim() ? (
                       <details className="group mt-3">
                         <summary className="flex min-h-[32px] cursor-pointer list-none items-center gap-1 text-xs font-semibold text-accent-strong [&::-webkit-details-marker]:hidden">
-                          Tulisan pasien
+                          {tr.patientWords}
                           <ChevronDownIcon size={14} className="transition-transform group-open:rotate-180" />
                         </summary>
                         <p className="mt-1 text-sm leading-relaxed text-muted">{shown.complaint}</p>
                       </details>
                     ) : null}
                   </div>
-                  {summary ? <p className="-mt-2 text-[11px] text-muted">Ringkasan otomatis, bukan diagnosis.</p> : null}
+                  {summary ? <p className="-mt-2 text-[11px] text-muted">{tr.autoSummary}</p> : null}
                 </>
               ) : (
                 <div className="py-4">
                   <p className="text-[26px] font-extrabold tracking-[-0.03em]">
-                    {waiting.length ? "Belum ada pasien hadir" : "Antrean kosong"}
+                    {waiting.length ? tr.noneArrived : tr.queueEmpty}
                   </p>
                   <p className="mt-1 text-muted">
-                    {waiting.length
-                      ? `${waiting.length} pasien online belum tiba di klinik.`
-                      : "Pasien baru akan muncul di sini."}
+                    {waiting.length ? tr.onlineNotArrived(waiting.length) : tr.newPatientsAppear}
                   </p>
                 </div>
               )}
             </div>
           </Ticket>
 
-          <section aria-label="Antrean" className="flex flex-col gap-4">
+          <section aria-label={tr.queueLabel} className="flex flex-col gap-4">
             <div className="card overflow-hidden">
               <div className="flex items-baseline justify-between border-b border-line-soft px-5 py-4">
-                <h2 className="text-[17px] font-bold">Antrean berikutnya</h2>
-                <p className="text-sm tabular-nums text-muted">{queue.length} pasien</p>
+                <h2 className="text-[17px] font-bold">{tr.upNext}</h2>
+                <p className="text-sm tabular-nums text-muted">{tr.patientsCount(queue.length)}</p>
               </div>
               <ol>
                 {queue.map((t, i) => {
@@ -249,30 +250,30 @@ export default async function DoctorPage() {
                             <span className="ml-2 font-semibold">{t.patients?.full_name}</span>
                           </p>
                           <p className="shrink-0 text-xs font-medium tabular-nums text-muted">
-                            {t.checked_in_at && t.estimated_call_at ? formatClinicTime(t.estimated_call_at) : null}
+                            {t.checked_in_at && t.estimated_call_at ? formatClinicTime(t.estimated_call_at, locale) : null}
                           </p>
                         </div>
                         <p className="line-clamp-1 text-sm text-muted">{t.complaint}</p>
                         <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-                          {t.predicted_minutes ? <Tag>±{t.predicted_minutes} mnt</Tag> : null}
+                          {t.predicted_minutes ? <Tag>{dict.common.min(t.predicted_minutes)}</Tag> : null}
                           {t.visit_purpose ? (
-                            <Tag>{VISIT_PURPOSE_LABEL[t.visit_purpose]}</Tag>
+                            <Tag>{dict.visit.purposeShort[t.visit_purpose]}</Tag>
                           ) : t.is_follow_up ? (
-                            <Tag>Kontrol</Tag>
+                            <Tag>{dict.visit.purposeShort.follow_up}</Tag>
                           ) : null}
-                          {t.has_chronic_condition ? <Tag tone="warn">Kronis</Tag> : null}
+                          {t.has_chronic_condition ? <Tag tone="warn">{tr.chronicShort}</Tag> : null}
                           {tAge ? <Tag>{tAge}</Tag> : null}
                           {!t.checked_in_at ? (
-                            <Tag tone="warn">{t.missed_turn_at ? "Terlewat · belum tiba" : "Belum tiba"}</Tag>
+                            <Tag tone="warn">{t.missed_turn_at ? tr.missedNotArrived : dict.staff.notArrived}</Tag>
                           ) : null}
-                          {t.defer_count > 0 ? <Tag tone="warn">Ditunda {t.defer_count}×</Tag> : null}
+                          {t.defer_count > 0 ? <Tag tone="warn">{dict.staff.deferred(t.defer_count)}</Tag> : null}
                         </div>
                       </div>
                     </li>
                   );
                 })}
                 {queue.length === 0 ? (
-                  <li className="px-5 py-10 text-center text-sm text-muted">Tidak ada antrean lagi.</li>
+                  <li className="px-5 py-10 text-center text-sm text-muted">{tr.noMore}</li>
                 ) : null}
               </ol>
             </div>
@@ -280,15 +281,15 @@ export default async function DoctorPage() {
             {done.length ? (
               <details className="group card overflow-hidden">
                 <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between px-5 text-sm font-semibold [&::-webkit-details-marker]:hidden">
-                  Selesai hari ini · {done.length}
+                  {tr.doneToday(done.length)}
                   <ChevronDownIcon size={16} className="text-muted transition-transform group-open:rotate-180" />
                 </summary>
                 <table className="w-full text-left text-sm">
                   <thead className="text-xs text-muted">
                     <tr className="border-t border-line-soft">
-                      <th className="px-5 py-2 font-medium">Tiket</th>
-                      <th className="px-5 py-2 font-medium">Pasien</th>
-                      <th className="px-5 py-2 text-right font-medium">Lama periksa</th>
+                      <th className="px-5 py-2 font-medium">{tr.colTicket}</th>
+                      <th className="px-5 py-2 font-medium">{tr.colPatient}</th>
+                      <th className="px-5 py-2 text-right font-medium">{tr.colDuration}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -297,7 +298,7 @@ export default async function DoctorPage() {
                         <td className="px-5 py-2.5 font-mono">{ticketCode(prefix, t.ticket_number)}</td>
                         <td className="max-w-0 truncate px-5 py-2.5">{t.patients?.full_name}</td>
                         <td className="px-5 py-2.5 text-right tabular-nums">
-                          {t.actual_minutes != null ? `${Math.round(Number(t.actual_minutes))} mnt` : "–"}
+                          {t.actual_minutes != null ? tr.minutes(Math.round(Number(t.actual_minutes))) : "–"}
                         </td>
                       </tr>
                     ))}

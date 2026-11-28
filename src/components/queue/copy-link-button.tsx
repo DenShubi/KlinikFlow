@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 
+import { useT } from "@/components/i18n/provider";
 import { CheckIcon, CopyIcon } from "@/components/icons";
 
 // Copies the current page link so the patient can keep their ticket.
 export function CopyLinkButton() {
+  const t = useT().ticket;
   const [copied, setCopied] = useState(false);
 
   async function copy() {
@@ -21,7 +23,7 @@ export function CopyLinkButton() {
   return (
     <button type="button" onClick={copy} className="btn btn-secondary w-full" aria-live="polite">
       {copied ? <CheckIcon size={18} /> : <CopyIcon size={18} />}
-      {copied ? "Tautan tersalin" : "Salin tautan tiket"}
+      {copied ? t.copied : t.copyLink}
     </button>
   );
 }

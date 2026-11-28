@@ -12,6 +12,7 @@ import { normalizePhone } from "@/lib/phone";
 import { estimateForQueue } from "@/lib/queue/estimator";
 import { FALLBACK_SLOT_MINUTES } from "@/lib/queue/rules";
 import { parseVisitDetails } from "@/lib/queue/visit";
+import { getDictionary, getLocale } from "@/lib/i18n/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type IntakeState = {
@@ -26,6 +27,8 @@ const MAX_COMPLAINT = 500;
 // so every input is validated here and only narrow queries are made.
 export async function registerRemote(_prev: IntakeState, formData: FormData): Promise<IntakeState> {
   const today = clinicToday();
+  const locale = await getLocale();
+  const e = (await getDictionary()).intake.errors;
   const values = {
     doctorId: String(formData.get("doctorId") ?? ""),
     serviceDate: String(formData.get("serviceDate") ?? today).trim() || today,
@@ -40,17 +43,17 @@ export async function registerRemote(_prev: IntakeState, formData: FormData): Pr
   const fail = (error: string): IntakeState => ({ error, values });
 
   // Hidden field that people never fill in; simple bots do.
-  if (String(formData.get("website") ?? "")) return fail("Pendaftaran gagal. Coba lagi.");
+  if (String(formData.get("website") ?? "")) return fail(e.failed);
 
-  if (!values.doctorId) return fail("Pilih dokter.");
-  if (!values.fullName) return fail("Nama lengkap wajib diisi.");
-  if (values.fullName.length > MAX_NAME) return fail("Nama terlalu panjang.");
+  if (!values.doctorId) return fail(e.pickDoctor);
+  if (!values.fullName) return fail(e.nameRequired);
+  if (values.fullName.length > MAX_NAME) return fail(e.nameTooLong);
   const phone = normalizePhone(values.phone);
-  if (!phone) return fail("Nomor WhatsApp wajib diisi agar kami bisa mengabari Anda.");
-  if (phone === "invalid") return fail("Nomor WhatsApp tidak valid. Contoh: 0812 3456 7890.");
-  if (values.complaint.length < 3) return fail("Ceritakan keluhan Anda secara singkat.");
-  if (values.complaint.length > MAX_COMPLAINT) return fail("Keluhan terlalu panjang (maks. 500 karakter).");
-  const visit = parseVisitDetails(formData);
+  if (!phone) return fail(e.phoneRequired);
+  if (phone === "invalid") return fail(e.phoneInvalid);
+  if (values.complaint.length < 3) return fail(e.complaintShort);
+  if (values.complaint.length > MAX_COMPLAINT) return fail(e.complaintLong);
+  const visit = parseVisitDetails(formData, locale);
   if (!visit.ok) return fail(visit.error);
 
   const admin = createAdminClient();
@@ -61,9 +64,9 @@ export async function registerRemote(_prev: IntakeState, formData: FormData): Pr
     .eq("id", values.doctorId)
     .eq("is_active", true)
     .maybeSingle();
-  if (!doctor) return fail("Dokter tidak tersedia. Pilih dokter lain.");
-  const dateCheck = isDoctorWorkingOnDate(doctor, values.serviceDate);
-  if (!dateCheck.ok) return fail(dateCheck.reason ?? "Tanggal kunjungan tidak tersedia.");
+  if (!doctor) return fail(e.doctorUnavailable);
+  const dateCheck = isDoctorWorkingOnDate(doctor, values.serviceDate, locale);
+  if (!dateCheck.ok) return fail(dateCheck.reason ?? e.dateUnavailable);
 
   // Same name and number already in this date's queue for this doctor: show that ticket.
   const { data: patients } = await admin
@@ -104,7 +107,7 @@ export async function registerRemote(_prev: IntakeState, formData: FormData): Pr
 
     const closeMs = clinicCloseTimestampMs(values.serviceDate, doctor.closes_at);
     if (lastEndMs > 0 && lastEndMs >= closeMs) {
-      return fail("Kuota antrean pada tanggal tersebut sudah penuh. Silakan pilih tanggal lain.");
+      return fail(e.full);
     }
   }
 
@@ -115,7 +118,7 @@ export async function registerRemote(_prev: IntakeState, formData: FormData): Pr
       .insert({ full_name: values.fullName, phone }) // the age group is stored per visit on the ticket, not a birth date
       .select("id")
       .single();
-    if (error || !created) return fail("Pendaftaran gagal. Coba lagi.");
+    if (error || !created) return fail(e.failed);
     patientId = created.id;
   }
 
@@ -144,7 +147,7 @@ export async function registerRemote(_prev: IntakeState, formData: FormData): Pr
     p_ai_summary: estimate.summary,
     p_service_date: values.serviceDate,
   });
-  if (error || !ticket) return fail("Pendaftaran gagal. Coba lagi.");
+  if (error || !ticket) return fail(e.failed);
 
   redirect(`/ticket/${ticket.id}`);
 }

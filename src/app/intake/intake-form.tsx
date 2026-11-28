@@ -7,6 +7,7 @@ import {
   ComplaintClarifier,
   type ClarifierAnswers,
 } from "@/components/ai";
+import { useT } from "@/components/i18n/provider";
 import { CheckIcon } from "@/components/icons";
 import { VisitFields } from "@/components/visit-fields";
 import type { ClarifyQuestion } from "@/lib/ai/clarify-core";
@@ -23,7 +24,7 @@ export type DoctorOption = {
   waitMinutes: number;
   open: boolean;
   hours: string; // "Senin–Jumat · 08.00–16.00"
-  hoursNote: string; // "Tutup · buka Senin 08.00"
+  next: string; // when closed: "buka Senin 08.00"
   opensLabel: string; // "08.00"
   dates: ServiceDateOption[];
 };
@@ -32,6 +33,9 @@ const LABEL = "flex flex-col gap-2 text-sm font-semibold text-ink";
 const HELP = "text-[13px] font-normal text-muted";
 
 export function IntakeForm({ doctors }: { doctors: DoctorOption[] }) {
+  const dict = useT();
+  const t = dict.intake;
+  const tc = dict.common;
   const [state, formAction, pending] = useActionState<IntakeState, FormData>(registerRemote, {});
   const v = state.values ?? {};
   const defaultDoctorId =
@@ -92,7 +96,7 @@ export function IntakeForm({ doctors }: { doctors: DoctorOption[] }) {
   return (
     <form action={formAction} className="flex flex-col gap-7">
       <fieldset className="flex min-w-0 flex-col gap-2.5">
-        <legend className="mb-2.5 text-sm font-semibold">Dokter</legend>
+        <legend className="mb-2.5 text-sm font-semibold">{t.doctor}</legend>
         {doctors.map((d) => {
           const bookable = d.dates.length > 0;
           return (
@@ -124,15 +128,15 @@ export function IntakeForm({ doctors }: { doctors: DoctorOption[] }) {
               <span className="flex shrink-0 flex-col items-end text-right tabular-nums">
                 {!d.open ? (
                   <>
-                    <span className="text-[13px] font-semibold text-muted">Jadwal berikut</span>
-                    <span className="text-xs text-muted">{d.hoursNote.replace(/^Tutup · /, "")}</span>
+                    <span className="text-[13px] font-semibold text-muted">{t.nextOpening}</span>
+                    <span className="text-xs text-muted">{d.next}</span>
                   </>
                 ) : d.waiting === 0 ? (
-                  <span className="text-[13px] font-semibold text-ok">Tanpa antre</span>
+                  <span className="text-[13px] font-semibold text-ok">{t.noQueue}</span>
                 ) : (
                   <>
-                    <span className="text-[13px] font-semibold">±{d.waitMinutes} mnt</span>
-                    <span className="text-xs text-muted">{d.waiting} antre</span>
+                    <span className="text-[13px] font-semibold">{tc.min(d.waitMinutes)}</span>
+                    <span className="text-xs text-muted">{t.waitingCount(d.waiting)}</span>
                   </>
                 )}
               </span>
@@ -146,7 +150,7 @@ export function IntakeForm({ doctors }: { doctors: DoctorOption[] }) {
 
       {availableDates.length > 0 ? (
         <fieldset className="flex min-w-0 flex-col gap-2.5">
-          <legend className="mb-2 text-sm font-semibold">Tanggal kunjungan</legend>
+          <legend className="mb-2 text-sm font-semibold">{t.visitDate}</legend>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {availableDates.map((option) => (
               <label
@@ -169,20 +173,20 @@ export function IntakeForm({ doctors }: { doctors: DoctorOption[] }) {
           </div>
           <p className={HELP}>
             {activeDateOption?.isToday
-              ? "Jam panggil dihitung otomatis dari antrean saat ini."
-              : `Jam panggil dihitung otomatis mulai pukul ${selectedDoctor?.opensLabel ?? "08.00"} WIB sesuai urutan dan durasi keluhan.`}
+              ? t.callTimeToday
+              : t.callTimeFuture(selectedDoctor?.opensLabel ?? "08.00")}
           </p>
         </fieldset>
       ) : null}
 
       <div className="flex flex-col gap-5">
         <label className={LABEL}>
-          Nama lengkap
+          {t.fullName}
           <input name="fullName" required maxLength={80} autoComplete="name" defaultValue={v.fullName} className="field" />
         </label>
 
         <label className={LABEL}>
-          Nomor WhatsApp
+          {t.whatsapp}
           <input
             name="phone"
             required
@@ -193,17 +197,17 @@ export function IntakeForm({ doctors }: { doctors: DoctorOption[] }) {
             defaultValue={v.phone}
             className="field"
           />
-          <span className={HELP}>Kami kabari saat giliran Anda dekat.</span>
+          <span className={HELP}>{t.whatsappHelp}</span>
         </label>
 
         <div className="flex flex-col gap-3">
           <label className={LABEL}>
-            Keluhan
+            {t.complaint}
             <textarea
               required
               rows={3}
               maxLength={380}
-              placeholder="Contoh: kepala cenat cenut atau demam sejak kemarin"
+              placeholder={t.complaintPlaceholder}
               value={complaintText}
               onChange={(e) => setComplaintText(e.target.value)}
               className="field resize-y"
@@ -248,13 +252,13 @@ export function IntakeForm({ doctors }: { doctors: DoctorOption[] }) {
                 aria-hidden
                 className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white motion-reduce:animate-none"
               />
-              Membuat tiket…
+              {tc.creatingTicket}
             </>
           ) : (
-            "Ambil nomor antrean"
+            t.submit
           )}
         </button>
-        <p className="text-center text-xs text-muted">Data Anda hanya untuk antrean klinik ini.</p>
+        <p className="text-center text-xs text-muted">{t.privacy}</p>
       </div>
     </form>
   );

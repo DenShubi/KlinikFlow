@@ -8,6 +8,7 @@ import { estimateForQueue } from "@/lib/queue/estimator";
 import { parseVisitDetails } from "@/lib/queue/visit";
 import { queueErrorMessage } from "@/lib/queue/errors";
 import { ticketCode } from "@/lib/queue/labels";
+import { getDictionary, getLocale } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
 
 export type ActionResult = {
@@ -27,13 +28,15 @@ export async function createTicket(_prev: ActionResult, formData: FormData): Pro
   const fullName = String(formData.get("fullName") ?? "").trim();
   const complaint = String(formData.get("complaint") ?? "").trim();
   const phone = normalizePhone(String(formData.get("phone") ?? ""));
+  const locale = await getLocale();
+  const t = (await getDictionary()).reception;
 
-  if (!doctorId) return { ok: false, error: "Pilih dokter." };
-  if (!fullName) return { ok: false, error: "Nama pasien wajib diisi." };
-  if (!complaint) return { ok: false, error: "Keluhan wajib diisi." };
-  if (!phone) return { ok: false, error: "Nomor WhatsApp wajib diisi." };
-  if (phone === "invalid") return { ok: false, error: "Nomor WhatsApp tidak valid. Contoh: 0812 3456 7890." };
-  const visit = parseVisitDetails(formData);
+  if (!doctorId) return { ok: false, error: t.errors.pickDoctor };
+  if (!fullName) return { ok: false, error: t.errors.nameRequired };
+  if (!complaint) return { ok: false, error: t.errors.complaintRequired };
+  if (!phone) return { ok: false, error: t.errors.phoneRequired };
+  if (phone === "invalid") return { ok: false, error: t.errors.phoneInvalid };
+  const visit = parseVisitDetails(formData, locale);
   if (!visit.ok) return { ok: false, error: visit.error };
 
   const supabase = await createClient();
@@ -42,7 +45,7 @@ export async function createTicket(_prev: ActionResult, formData: FormData): Pro
     .insert({ full_name: fullName, phone }) // the age group is stored per visit on the ticket, not a birth date
     .select("id")
     .single();
-  if (patientError) return { ok: false, error: queueErrorMessage(patientError) };
+  if (patientError) return { ok: false, error: queueErrorMessage(patientError, locale) };
 
   const estimate = await estimateForQueue({
     ticketId: "", // not created yet; the estimator never sends it anywhere
@@ -69,7 +72,7 @@ export async function createTicket(_prev: ActionResult, formData: FormData): Pro
     p_ai_summary: estimate.summary,
   });
   // On failure the new patient row stays; it is harmless and can be reused later.
-  if (error) return { ok: false, error: queueErrorMessage(error) };
+  if (error) return { ok: false, error: queueErrorMessage(error, locale) };
 
   const { data: doctor } = await supabase.from("doctors").select("ticket_prefix").eq("id", doctorId).single();
   const code = ticketCode(doctor?.ticket_prefix ?? "?", ticket.ticket_number);
@@ -77,7 +80,7 @@ export async function createTicket(_prev: ActionResult, formData: FormData): Pro
   refresh();
   return {
     ok: true,
-    message: `${code} dibuat untuk ${fullName}.`,
+    message: t.created(code, fullName),
     ticket: {
       code,
       minutes: ticket.predicted_minutes ?? estimate.minutes,
@@ -99,7 +102,7 @@ async function runTicketOperation(
   await requireStaff();
   const supabase = await createClient();
   const { error } = await supabase.rpc(fn, { p_ticket_id: ticketId });
-  if (error) return { ok: false, error: queueErrorMessage(error) };
+  if (error) return { ok: false, error: queueErrorMessage(error, await getLocale()) };
   refresh();
   return { ok: true };
 }
@@ -109,7 +112,7 @@ export async function callNext(doctorId: string): Promise<ActionResult> {
   await requireStaff();
   const supabase = await createClient();
   const { error } = await supabase.rpc("queue_call_next", { p_doctor_id: doctorId });
-  if (error) return { ok: false, error: queueErrorMessage(error) };
+  if (error) return { ok: false, error: queueErrorMessage(error, await getLocale()) };
   refresh();
   return { ok: true };
 }

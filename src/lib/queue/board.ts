@@ -4,6 +4,7 @@ import { connection } from "next/server";
 
 import { doctorAvailability, type Availability } from "@/lib/clinic-hours";
 import { clinicToday, minutesUntil } from "@/lib/clinic-time";
+import type { Locale } from "@/lib/i18n/config";
 import { ticketCode } from "@/lib/queue/labels";
 import { FALLBACK_SLOT_MINUTES } from "@/lib/queue/rules";
 import { queueTopic } from "@/lib/queue/public-status";
@@ -29,7 +30,7 @@ export type BoardDoctor = {
 };
 
 
-export async function getQueueBoard(): Promise<BoardDoctor[]> {
+export async function getQueueBoard(locale: Locale = "id"): Promise<BoardDoctor[]> {
   await connection(); // live data and the clock: per request
   const admin = createAdminClient();
   const today = clinicToday();
@@ -70,7 +71,7 @@ export async function getQueueBoard(): Promise<BoardDoctor[]> {
       nowServing: serving ? ticketCode(d.ticket_prefix, serving.ticket_number) : null,
       waiting: waiting.length,
       waitMinutes: lastEnd ? (minutesUntil(new Date(lastEnd).toISOString()) ?? 0) : 0,
-      availability: doctorAvailability(d),
+      availability: doctorAvailability(d, locale),
       topic: queueTopic(d.id, today),
     };
   });

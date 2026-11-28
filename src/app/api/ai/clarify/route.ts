@@ -1,6 +1,7 @@
 import { connection } from "next/server";
 
 import { clarifyComplaint } from "@/lib/ai/clarify";
+import { getLocale } from "@/lib/i18n/server";
 
 export async function POST(request: Request) {
   await connection();
@@ -19,7 +20,8 @@ export async function POST(request: Request) {
     return Response.json({ questions: [], source: "fallback" }, { status: 200 });
   }
 
-  const result = await clarifyComplaint(complaint);
+  // Questions in the language the patient chose (cookie set by the language switch).
+  const result = await clarifyComplaint(complaint, await getLocale());
   return Response.json(
     {
       questions: result.questions,

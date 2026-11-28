@@ -1,3 +1,5 @@
+import { INTL_LOCALE, type Locale } from "@/lib/i18n/config";
+
 // The clinic runs on Western Indonesia Time (WIB). Same rule as the database
 // function public.clinic_today().
 export const CLINIC_TIME_ZONE = "Asia/Jakarta";
@@ -14,9 +16,9 @@ export function minutesUntil(value: string | null | undefined, now: number = Dat
   return Math.max(0, Math.round((new Date(value).getTime() - now) / 60000));
 }
 
-// "Jum, 20 Nov 2026" style date for a YYYY-MM-DD service date.
-export function formatClinicDate(serviceDate: string): string {
-  return new Intl.DateTimeFormat("id-ID", {
+// "Jum, 20 Nov 2026" (or "Fri, 20 Nov 2026") for a YYYY-MM-DD service date.
+export function formatClinicDate(serviceDate: string, locale: Locale = "id"): string {
+  return new Intl.DateTimeFormat(INTL_LOCALE[locale], {
     timeZone: "UTC",
     weekday: "short",
     day: "numeric",
@@ -25,10 +27,10 @@ export function formatClinicDate(serviceDate: string): string {
   }).format(new Date(`${serviceDate}T00:00:00Z`));
 }
 
-// "09.41" style time in the clinic time zone.
-export function formatClinicTime(value: string | null | undefined): string {
+// "09.41" (or "09:41") time in the clinic time zone.
+export function formatClinicTime(value: string | null | undefined, locale: Locale = "id"): string {
   if (!value) return "–";
-  return new Intl.DateTimeFormat("id-ID", {
+  return new Intl.DateTimeFormat(INTL_LOCALE[locale], {
     timeZone: CLINIC_TIME_ZONE,
     hour: "2-digit",
     minute: "2-digit",

@@ -4,17 +4,20 @@ import Link from "next/link";
 import { Brand } from "@/components/brand";
 import { ArrowLeftIcon } from "@/components/icons";
 import { formatOpeningTime, upcomingServiceDates } from "@/lib/clinic-hours";
+import { getDictionary, getLocale } from "@/lib/i18n/server";
 import { getQueueBoard } from "@/lib/queue/board";
 
 import { IntakeForm, type DoctorOption } from "./intake-form";
 
-export const metadata: Metadata = {
-  title: "Ambil antrean · KlinikFlow",
-  description: "Daftar antrean klinik dari rumah dan pantau giliran Anda.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getDictionary();
+  return { title: t.meta.intake, description: t.meta.intakeDescription };
+}
 
 export default async function IntakePage() {
-  const board = await getQueueBoard();
+  const locale = await getLocale();
+  const t = await getDictionary();
+  const board = await getQueueBoard(locale);
   const options: DoctorOption[] = board.map((d) => ({
     id: d.id,
     name: d.name,
@@ -24,14 +27,17 @@ export default async function IntakePage() {
     waiting: d.waiting,
     waitMinutes: d.waitMinutes,
     open: d.availability.open,
-    hoursNote: d.availability.note,
+    next: d.availability.next,
     hours: `${d.availability.days} · ${d.availability.hours}`,
-    opensLabel: formatOpeningTime(d.opensAt),
-    dates: upcomingServiceDates({
-      work_days: d.workDays,
-      opens_at: d.opensAt,
-      closes_at: d.closesAt,
-    }),
+    opensLabel: formatOpeningTime(d.opensAt, locale),
+    dates: upcomingServiceDates(
+      {
+        work_days: d.workDays,
+        opens_at: d.opensAt,
+        closes_at: d.closesAt,
+      },
+      locale,
+    ),
   }));
 
   const hasAnyBookableDate = options.some((d) => d.dates.length > 0);
@@ -39,7 +45,7 @@ export default async function IntakePage() {
   return (
     <div className="flex flex-1 flex-col">
       <header className="mx-auto flex w-full max-w-[480px] items-center justify-between px-4 pt-4">
-        <Link href="/" className="btn btn-quiet h-11 w-11 px-0" aria-label="Kembali ke beranda">
+        <Link href="/" className="btn btn-quiet h-11 w-11 px-0" aria-label={t.common.backHome}>
           <ArrowLeftIcon />
         </Link>
         <Brand />
@@ -48,14 +54,14 @@ export default async function IntakePage() {
 
       <main className="mx-auto flex w-full max-w-[480px] flex-1 flex-col gap-6 px-4 pb-12 pt-6">
         <div className="flex flex-col gap-1.5">
-          <h1 className="text-[31px] font-extrabold leading-tight tracking-[-0.035em]">Ambil antrean</h1>
-          <p className="text-muted">Pilih dokter dan tanggal kunjungan. Jam panggil dihitung otomatis.</p>
+          <h1 className="text-[31px] font-extrabold leading-tight tracking-[-0.035em]">{t.intake.title}</h1>
+          <p className="text-muted">{t.intake.sub}</p>
         </div>
 
         {options.length === 0 || !hasAnyBookableDate ? (
           <div className="card px-5 py-8 text-center">
-            <p className="font-semibold">Belum ada jadwal dokter tersedia</p>
-            <p className="mt-1 text-sm text-muted">Coba lagi nanti.</p>
+            <p className="font-semibold">{t.intake.noSchedule}</p>
+            <p className="mt-1 text-sm text-muted">{t.intake.tryLater}</p>
           </div>
         ) : (
           <IntakeForm doctors={options} />

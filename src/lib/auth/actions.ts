@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 
 import { ROLE_HOME } from "@/lib/auth/roles";
+import { getDictionary } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
 
 export type SignInState = {
@@ -13,15 +14,16 @@ export type SignInState = {
 export async function signIn(_prev: SignInState, formData: FormData): Promise<SignInState> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
+  const t = (await getDictionary()).login.errors;
 
   if (!email || !password) {
-    return { error: "Isi email dan kata sandi.", email };
+    return { error: t.missing, email };
   }
 
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error || !data.user) {
-    return { error: "Email atau kata sandi salah.", email };
+    return { error: t.wrong, email };
   }
 
   const { data: profile } = await supabase
@@ -32,7 +34,7 @@ export async function signIn(_prev: SignInState, formData: FormData): Promise<Si
 
   if (!profile) {
     await supabase.auth.signOut();
-    return { error: "Akun ini tidak terdaftar sebagai staf klinik.", email };
+    return { error: t.notStaff, email };
   }
 
   redirect(ROLE_HOME[profile.role]);

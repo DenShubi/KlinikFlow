@@ -4,6 +4,8 @@ const nextConfig: NextConfig = {
   /* config options here */
   cacheComponents: true,
   partialPrefetching: true,
+  // The language switch sits bottom left.
+  devIndicators: { position: "bottom-right" },
   turbopack: {
     rules: {
       "*.css": {

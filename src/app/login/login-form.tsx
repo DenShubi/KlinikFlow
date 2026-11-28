@@ -2,17 +2,20 @@
 
 import { useActionState } from "react";
 
+import { useT } from "@/components/i18n/provider";
 import { signIn, type SignInState } from "@/lib/auth/actions";
 
 const initialState: SignInState = {};
 
 export function LoginForm() {
+  const dict = useT();
+  const t = dict.login;
   const [state, formAction, pending] = useActionState(signIn, initialState);
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
       <label className="flex flex-col gap-1.5 text-sm font-semibold">
-        Email
+        {t.email}
         <input
           name="email"
           type="email"
@@ -25,7 +28,7 @@ export function LoginForm() {
       </label>
 
       <label className="flex flex-col gap-1.5 text-sm font-semibold">
-        Kata sandi
+        {t.password}
         <input
           name="password"
           type="password"
@@ -43,7 +46,7 @@ export function LoginForm() {
       ) : null}
 
       <button type="submit" disabled={pending} aria-busy={pending} className="btn btn-primary btn-lg mt-2 w-full">
-        {pending ? "Memproses…" : "Masuk"}
+        {pending ? dict.common.processing : t.submit}
       </button>
     </form>
   );

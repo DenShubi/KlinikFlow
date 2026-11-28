@@ -1,4 +1,6 @@
 import { CLINIC_TIME_ZONE, clinicToday } from "@/lib/clinic-time";
+import { INTL_LOCALE, type Locale } from "@/lib/i18n/config";
+import { DICTIONARIES } from "@/lib/i18n/dictionaries";
 
 // Working hours of a doctor (columns of public.doctors), in clinic time (WIB).
 export type DoctorHours = {
@@ -10,7 +12,7 @@ export type DoctorHours = {
 export type ServiceDateOption = {
   date: string; // YYYY-MM-DD
   label: string; // "Hari ini", "Besok", "Sen, 23 Nov"
-  sublabel: string; // "22 Nov" or "08.00-16.00"
+  sublabel: string; // "22 Nov" or "08.00 WIB"
   isToday: boolean;
 };
 
@@ -19,9 +21,9 @@ export type Availability = {
   hours: string; // "08.00–16.00"
   days: string; // "Senin–Jumat"
   note: string; // "Buka sampai 16.00" / "Tutup · buka Senin 08.00"
+  next: string; // when closed: "buka Senin 08.00"; empty when open
 };
 
-const DAY_NAMES = ["", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
 const WEEKDAY_INDEX: Record<string, number> = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 };
 
 function clinicClock(now: Date): { weekday: number; minutes: number } {
@@ -41,18 +43,20 @@ function toMinutes(time: string): number {
   return h * 60 + (m || 0);
 }
 
-// "08:00:00" -> "08.00" (Indonesian time notation)
-function formatTime(time: string): string {
-  return time.slice(0, 5).replace(":", ".");
+// "08:00:00" -> "08.00" in Indonesian, "08:00" in English.
+function formatTime(time: string, locale: Locale): string {
+  const hhmm = time.slice(0, 5);
+  return locale === "id" ? hhmm.replace(":", ".") : hhmm;
 }
 
-export function formatWorkDays(days: number[]): string {
+export function formatWorkDays(days: number[], locale: Locale = "id"): string {
+  const t = DICTIONARIES[locale].hours;
   const sorted = [...new Set(days)].sort((a, b) => a - b);
   if (sorted.length === 0) return "–";
-  if (sorted.length === 7) return "Setiap hari";
+  if (sorted.length === 7) return t.everyDay;
   const consecutive = sorted.every((d, i) => i === 0 || d === sorted[i - 1] + 1);
-  if (consecutive && sorted.length > 2) return `${DAY_NAMES[sorted[0]]}–${DAY_NAMES[sorted.at(-1)!]}`;
-  return sorted.map((d) => DAY_NAMES[d]).join(", ");
+  if (consecutive && sorted.length > 2) return `${t.dayNames[sorted[0]]}–${t.dayNames[sorted.at(-1)!]}`;
+  return sorted.map((d) => t.dayNames[d]).join(", ");
 }
 
 // Demo switch: CLINIC_ALWAYS_OPEN=true treats every doctor as open, so the
@@ -63,28 +67,30 @@ export function clinicAlwaysOpen(): boolean {
 
 // Is the doctor working right now, and if not, when do they open next?
 // Call at request time only (it reads the clock).
-export function doctorAvailability(h: DoctorHours, now: Date = new Date()): Availability {
-  const hours = `${formatTime(h.opens_at)}–${formatTime(h.closes_at)}`;
-  const days = formatWorkDays(h.work_days);
-  const opens = formatTime(h.opens_at);
+export function doctorAvailability(h: DoctorHours, locale: Locale = "id", now: Date = new Date()): Availability {
+  const t = DICTIONARIES[locale].hours;
+  const hours = `${formatTime(h.opens_at, locale)}–${formatTime(h.closes_at, locale)}`;
+  const days = formatWorkDays(h.work_days, locale);
+  const opens = formatTime(h.opens_at, locale);
+  const closed = (next: string) => ({ open: false, hours, days, note: next ? `${t.closed} · ${next}` : t.closed, next });
 
-  if (clinicAlwaysOpen()) return { open: true, hours, days, note: `Buka ${hours}` };
+  if (clinicAlwaysOpen()) return { open: true, hours, days, note: t.open(hours), next: "" };
 
   const { weekday, minutes } = clinicClock(now);
   const worksToday = h.work_days.includes(weekday);
   if (worksToday && minutes >= toMinutes(h.opens_at) && minutes < toMinutes(h.closes_at)) {
-    return { open: true, hours, days, note: `Buka sampai ${formatTime(h.closes_at)}` };
+    return { open: true, hours, days, note: t.openUntil(formatTime(h.closes_at, locale)), next: "" };
   }
   if (worksToday && minutes < toMinutes(h.opens_at)) {
-    return { open: false, hours, days, note: `Tutup · buka pukul ${opens}` };
+    return closed(t.opensAt(opens));
   }
   for (let ahead = 1; ahead <= 7; ahead++) {
     const day = ((weekday - 1 + ahead) % 7) + 1;
     if (h.work_days.includes(day)) {
-      return { open: false, hours, days, note: `Tutup · buka ${ahead === 1 ? "besok" : DAY_NAMES[day]} ${opens}` };
+      return closed(ahead === 1 ? t.opensTomorrow(opens) : t.opensOn(t.dayNames[day], opens));
     }
   }
-  return { open: false, hours, days, note: "Tutup" };
+  return closed("");
 }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -101,16 +107,16 @@ function isoWeekdayOfDate(isoDate: string): number {
   return day === 0 ? 7 : day;
 }
 
-function shortDayMonth(isoDate: string): string {
-  return new Intl.DateTimeFormat("id-ID", {
+function shortDayMonth(isoDate: string, locale: Locale): string {
+  return new Intl.DateTimeFormat(INTL_LOCALE[locale], {
     timeZone: "UTC",
     day: "numeric",
     month: "short",
   }).format(new Date(`${isoDate}T00:00:00Z`));
 }
 
-function shortWeekdayDate(isoDate: string): string {
-  return new Intl.DateTimeFormat("id-ID", {
+function shortWeekdayDate(isoDate: string, locale: Locale): string {
+  return new Intl.DateTimeFormat(INTL_LOCALE[locale], {
     timeZone: "UTC",
     weekday: "short",
     day: "numeric",
@@ -121,9 +127,11 @@ function shortWeekdayDate(isoDate: string): string {
 // Build upcoming valid working dates for a doctor (up to `count` dates within 14 days).
 export function upcomingServiceDates(
   h: DoctorHours,
+  locale: Locale = "id",
   count = 6,
   now: Date = new Date(),
 ): ServiceDateOption[] {
+  const t = DICTIONARIES[locale].hours;
   const today = clinicToday(now);
   const { minutes } = clinicClock(now);
   const alwaysOpen = clinicAlwaysOpen();
@@ -140,8 +148,8 @@ export function upcomingServiceDates(
       if (!canBookToday) continue;
       options.push({
         date,
-        label: "Hari ini",
-        sublabel: shortDayMonth(date),
+        label: t.today,
+        sublabel: shortDayMonth(date, locale),
         isToday: true,
       });
       continue;
@@ -150,8 +158,8 @@ export function upcomingServiceDates(
     if (!h.work_days.includes(weekday)) continue;
     options.push({
       date,
-      label: offset === 1 ? "Besok" : shortWeekdayDate(date),
-      sublabel: offset === 1 ? shortDayMonth(date) : `${formatTime(h.opens_at)} WIB`,
+      label: offset === 1 ? t.tomorrow : shortWeekdayDate(date, locale),
+      sublabel: offset === 1 ? shortDayMonth(date, locale) : `${formatTime(h.opens_at, locale)} ${t.timeZone}`,
       isToday: false,
     });
   }
@@ -162,20 +170,22 @@ export function upcomingServiceDates(
 export function isDoctorWorkingOnDate(
   h: DoctorHours,
   serviceDate: string,
+  locale: Locale = "id",
   now: Date = new Date(),
 ): { ok: boolean; reason?: string } {
+  const t = DICTIONARIES[locale].hours;
   if (!ISO_DATE.test(serviceDate)) {
-    return { ok: false, reason: "Tanggal kunjungan tidak valid." };
+    return { ok: false, reason: t.invalidDate };
   }
 
   const today = clinicToday(now);
   if (serviceDate < today) {
-    return { ok: false, reason: "Tanggal kunjungan tidak boleh di masa lalu." };
+    return { ok: false, reason: t.pastDate };
   }
 
   const maxDate = addDaysIso(today, MAX_BOOKING_DAYS_AHEAD);
   if (serviceDate > maxDate) {
-    return { ok: false, reason: "Pendaftaran maksimal 14 hari ke depan." };
+    return { ok: false, reason: t.tooFar };
   }
 
   const alwaysOpen = clinicAlwaysOpen();
@@ -185,16 +195,16 @@ export function isDoctorWorkingOnDate(
     if (alwaysOpen) return { ok: true };
     const { minutes } = clinicClock(now);
     if (!h.work_days.includes(weekday)) {
-      return { ok: false, reason: "Dokter tidak praktik hari ini. Pilih tanggal praktik berikutnya." };
+      return { ok: false, reason: t.notToday };
     }
     if (minutes >= toMinutes(h.closes_at)) {
-      return { ok: false, reason: "Jam praktik hari ini sudah selesai. Pilih tanggal besok atau berikutnya." };
+      return { ok: false, reason: t.endedToday };
     }
     return { ok: true };
   }
 
   if (!h.work_days.includes(weekday)) {
-    return { ok: false, reason: `Dokter praktik pada ${formatWorkDays(h.work_days)}.` };
+    return { ok: false, reason: t.worksOn(formatWorkDays(h.work_days, locale)) };
   }
 
   return { ok: true };
@@ -206,6 +216,6 @@ export function clinicCloseTimestampMs(serviceDate: string, closesAt: string): n
   return Date.parse(`${serviceDate}T${hhmmss}+07:00`);
 }
 
-export function formatOpeningTime(opensAt: string): string {
-  return formatTime(opensAt);
+export function formatOpeningTime(opensAt: string, locale: Locale = "id"): string {
+  return formatTime(opensAt, locale);
 }

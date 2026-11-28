@@ -2,70 +2,29 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { useT } from "@/components/i18n/provider";
 import type { ClarifyQuestion } from "@/lib/ai/clarify-core";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
 
 export type ClarifierAnswers = Record<string, string[]>;
-
-export const DURATION_OPTIONS = [
-  "Baru hari ini",
-  "2-3 hari",
-  "Lebih dari seminggu",
-] as const;
 
 const ROUTINE_REGEX =
   /\b(surat sehat|surat keterangan|cek tensi|tensi rutin|ambil hasil|hasil lab)\b/i;
 
-const FALLBACK_SYMPTOM_GROUPS: Array<{
-  id: string;
-  pattern: RegExp;
-  question: string;
-  options: string[];
-}> = [
-  {
-    id: "headache",
-    pattern: /\b(kepala|pusing|cenat|migra|nyut|pening|vertigo|headache|dizzy)\b/i,
-    question: "Seperti apa rasa sakitnya?",
-    options: ["Berdenyut", "Seperti ditekan", "Seperti ditusuk", "Pusing berputar", "Disertai mual"],
-  },
-  {
-    id: "chest",
-    pattern: /\b(dada|jantung|chest)\b/i,
-    question: "Detail keluhan dada?",
-    options: ["Seperti ditekan", "Sesak napas", "Keringat dingin", "Panas atau perih"],
-  },
-  {
-    id: "wound",
-    pattern: /\b(luka|perban|jatuh|teriris|robek|lecet|jahit|wound)\b/i,
-    question: "Kondisi luka saat ini?",
-    options: ["Perlu ganti perban", "Masih berdarah", "Bengkak / kemerahan", "Nyeri hebat"],
-  },
-  {
-    id: "respiratory",
-    pattern: /\b(batuk|pilek|flu|sesak|asma|mengi|tenggorokan|cough|cold)\b/i,
-    question: "Detail keluhan napas / batuk?",
-    options: ["Berdahak", "Batuk kering", "Agak sesak", "Nyeri menelan"],
-  },
-  {
-    id: "fever",
-    pattern: /\b(demam|panas|meriang|fever)\b/i,
-    question: "Gejala penyerta demam?",
-    options: ["Menggigil", "Mual / muntah", "Badan pegal", "Nafsu makan turun"],
-  },
-  {
-    id: "stomach",
-    pattern: /\b(perut|maag|lambung|mual|muntah|diare|mulas|mencret|stomach)\b/i,
-    question: "Seperti apa keluhan perutnya?",
-    options: ["Perih atau panas", "Mual / muntah", "Diare cair", "Kembung / begah"],
-  },
-  {
-    id: "skin",
-    pattern: /\b(gatal|ruam|bentol|alergi|kulit|biduran|rash)\b/i,
-    question: "Detail keluhan kulit?",
-    options: ["Bentol kemerahan", "Panas atau perih", "Menyebar luas", "Muncul setelah makan/obat"],
-  },
+// Offline follow-up questions when the AI is unavailable. The text comes from
+// the dictionary (clarifier.symptoms); the patterns match Indonesian and
+// common English words.
+const FALLBACK_SYMPTOM_GROUPS: Array<{ id: keyof Dictionary["clarifier"]["symptoms"]; pattern: RegExp }> = [
+  { id: "headache", pattern: /\b(kepala|pusing|cenat|migra|nyut|pening|vertigo|headache|dizzy|migraine)\b/i },
+  { id: "chest", pattern: /\b(dada|jantung|chest)\b/i },
+  { id: "wound", pattern: /\b(luka|perban|jatuh|teriris|robek|lecet|jahit|wound|cut|bandage)\b/i },
+  { id: "respiratory", pattern: /\b(batuk|pilek|flu|sesak|asma|mengi|tenggorokan|cough|cold|throat|breath)\b/i },
+  { id: "fever", pattern: /\b(demam|panas|meriang|fever)\b/i },
+  { id: "stomach", pattern: /\b(perut|maag|lambung|mual|muntah|diare|mulas|mencret|stomach|nausea|vomit|diarrh?oea|diarrhea)\b/i },
+  { id: "skin", pattern: /\b(gatal|ruam|bentol|alergi|kulit|biduran|rash|itch|itchy|allergy)\b/i },
 ];
 
-export function buildFallbackQuestions(complaint: string): ClarifyQuestion[] {
+export function buildFallbackQuestions(complaint: string, t: Dictionary["clarifier"]): ClarifyQuestion[] {
   const trimmed = complaint.trim();
   if (trimmed.length < 3 || ROUTINE_REGEX.test(trimmed)) {
     return [];
@@ -74,8 +33,8 @@ export function buildFallbackQuestions(complaint: string): ClarifyQuestion[] {
   const questions: ClarifyQuestion[] = [
     {
       id: "fallback-duration",
-      question: "Sudah berapa lama?",
-      options: [...DURATION_OPTIONS],
+      question: t.duration.question,
+      options: [...t.duration.options],
       allowMultiple: false,
     },
   ];
@@ -84,8 +43,8 @@ export function buildFallbackQuestions(complaint: string): ClarifyQuestion[] {
     if (group.pattern.test(trimmed)) {
       questions.push({
         id: `fallback-${group.id}`,
-        question: group.question,
-        options: group.options,
+        question: t.symptoms[group.id].question,
+        options: [...t.symptoms[group.id].options],
         allowMultiple: true,
       });
       break;
@@ -134,6 +93,7 @@ export function ComplaintClarifier({
   onQuestionsLoaded,
   onToggleAnswer,
 }: ComplaintClarifierProps) {
+  const t = useT().clarifier;
   const [loading, setLoading] = useState(false);
   const [lastAskedComplaint, setLastAskedComplaint] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -168,7 +128,7 @@ export function ComplaintClarifier({
       });
 
       if (!res.ok) {
-        onQuestionsLoaded(buildFallbackQuestions(trimmed));
+        onQuestionsLoaded(buildFallbackQuestions(trimmed, t));
         setLastAskedComplaint(trimmed);
         return;
       }
@@ -181,7 +141,7 @@ export function ComplaintClarifier({
       if (Array.isArray(data.questions) && data.questions.length > 0) {
         onQuestionsLoaded(data.questions);
       } else if (data.source === "fallback") {
-        onQuestionsLoaded(buildFallbackQuestions(trimmed));
+        onQuestionsLoaded(buildFallbackQuestions(trimmed, t));
       } else {
         onQuestionsLoaded([]);
       }
@@ -190,7 +150,7 @@ export function ComplaintClarifier({
       if (err instanceof Error && err.name === "AbortError") {
         return;
       }
-      onQuestionsLoaded(buildFallbackQuestions(trimmed));
+      onQuestionsLoaded(buildFallbackQuestions(trimmed, t));
       setLastAskedComplaint(trimmed);
     } finally {
       if (abortRef.current === controller) {
@@ -215,23 +175,23 @@ export function ComplaintClarifier({
                 aria-hidden="true"
                 className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent-strong/30 border-t-accent-strong motion-reduce:animate-none"
               />
-              Menyiapkan pertanyaan lanjutan…
+              {t.loading}
             </>
           ) : questions.length > 0 && !complaintChangedSinceAsk ? (
-            "Muat ulang pertanyaan"
+            t.reload
           ) : (
-            "Bantu perjelas keluhan (opsional)"
+            t.ask
           )}
         </button>
 
         {complaintChangedSinceAsk && questions.length > 0 ? (
-          <span className="text-xs text-muted">Keluhan berubah, klik lagi untuk perbarui.</span>
+          <span className="text-xs text-muted">{t.changed}</span>
         ) : null}
       </div>
 
       {questions.length > 0 ? (
         <div
-          aria-label="Pertanyaan lanjutan keluhan (opsional)"
+          aria-label={t.groupLabel}
           className="flex flex-col gap-4 rounded-[14px] bg-canvas p-4 shadow-[inset_0_0_0_1px_var(--color-line-soft)]"
         >
           {questions.map((q) => {
@@ -241,7 +201,7 @@ export function ComplaintClarifier({
                 <p className="text-xs font-semibold text-ink">
                   {q.question}{" "}
                   <span className="font-normal text-muted">
-                    {q.allowMultiple ? "(boleh pilih lebih dari satu)" : "(pilih satu)"}
+                    {q.allowMultiple ? t.multiple : t.single}
                   </span>
                 </p>
                 <div className="flex flex-wrap gap-2">

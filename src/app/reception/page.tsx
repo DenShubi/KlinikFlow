@@ -8,15 +8,18 @@ import { requireStaff } from "@/lib/auth/dal";
 import { doctorAvailability } from "@/lib/clinic-hours";
 import { clinicToday, formatClinicDate, formatClinicTime, minutesUntil } from "@/lib/clinic-time";
 import { cancelTicket, checkIn } from "@/lib/queue/actions";
-import { TICKET_STATUS_LABEL, ticketCode } from "@/lib/queue/labels";
+import type { Locale } from "@/lib/i18n/config";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
+import { getDictionary, getLocale } from "@/lib/i18n/server";
+import { ticketCode } from "@/lib/queue/labels";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
 
 import { NewTicketForm } from "./new-ticket-form";
 
-export const metadata: Metadata = {
-  title: "Resepsionis · KlinikFlow",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getDictionary()).meta.reception };
+}
 
 type Status = Database["public"]["Enums"]["ticket_status"];
 
@@ -44,58 +47,71 @@ type Row = {
   patients: { full_name: string; phone: string | null } | null;
 };
 
-function QueueTable({ prefix, rows, muted = false }: { prefix: string; rows: Row[]; muted?: boolean }) {
+function QueueTable({
+  prefix,
+  rows,
+  muted = false,
+  dict,
+  locale,
+}: {
+  prefix: string;
+  rows: Row[];
+  muted?: boolean;
+  dict: Dictionary;
+  locale: Locale;
+}) {
+  const t = dict.reception;
   return (
     <div className="overflow-x-auto">
       <table className={`w-full min-w-[680px] text-left text-sm ${muted ? "text-muted" : ""}`}>
         <thead className="text-xs text-muted">
           <tr>
-            <th className="w-[88px] px-5 py-2.5 font-medium">Tiket</th>
-            <th className="px-5 py-2.5 font-medium">Pasien</th>
-            <th className="px-5 py-2.5 font-medium">Status</th>
-            <th className="whitespace-nowrap px-5 py-2.5 text-right font-medium">Dipanggil</th>
+            <th className="w-[88px] px-5 py-2.5 font-medium">{t.colTicket}</th>
+            <th className="px-5 py-2.5 font-medium">{t.colPatient}</th>
+            <th className="px-5 py-2.5 font-medium">{t.colStatus}</th>
+            <th className="whitespace-nowrap px-5 py-2.5 text-right font-medium">{t.colCalled}</th>
             <th className="w-px px-5 py-2.5">
-              <span className="sr-only">Aksi</span>
+              <span className="sr-only">{t.colActions}</span>
             </th>
           </tr>
         </thead>
         <tbody>
-          {rows.map((t) => {
-            const open = t.status === "waiting" || t.status === "called";
+          {rows.map((row) => {
+            const open = row.status === "waiting" || row.status === "called";
             // Every patient, walk-in or online, is marked as arrived by the receptionist.
-            const notArrived = !t.checked_in_at && open;
+            const notArrived = !row.checked_in_at && open;
             return (
-              <tr key={t.id} className="border-t border-line-soft">
-                <td className="whitespace-nowrap px-5 py-3 font-mono font-semibold">{ticketCode(prefix, t.ticket_number)}</td>
+              <tr key={row.id} className="border-t border-line-soft">
+                <td className="whitespace-nowrap px-5 py-3 font-mono font-semibold">{ticketCode(prefix, row.ticket_number)}</td>
                 <td className="px-5 py-3">
-                  <p className={muted ? "" : "font-semibold"}>{t.patients?.full_name}</p>
+                  <p className={muted ? "" : "font-semibold"}>{row.patients?.full_name}</p>
                   <p className="whitespace-nowrap text-xs text-muted">
-                    {t.channel === "remote" ? "Online" : "Datang langsung"}
-                    {t.patients?.phone ? <span className="font-mono"> · {t.patients.phone}</span> : null}
+                    {row.channel === "remote" ? t.online : t.walkIn}
+                    {row.patients?.phone ? <span className="font-mono"> · {row.patients.phone}</span> : null}
                   </p>
                 </td>
                 <td className="px-5 py-3">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_CHIP[t.status]}`}>
-                      {TICKET_STATUS_LABEL[t.status]}
+                    <span className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_CHIP[row.status]}`}>
+                      {dict.staff.ticketStatus[row.status]}
                     </span>
                     {notArrived ? (
                       <span className="whitespace-nowrap rounded-full bg-warn-soft px-2.5 py-0.5 text-xs font-semibold text-warn">
-                        {t.missed_turn_at ? "Terlewat" : "Belum tiba"}
+                        {row.missed_turn_at ? dict.staff.missed : dict.staff.notArrived}
                       </span>
                     ) : null}
-                    {t.defer_count > 0 && open ? (
+                    {row.defer_count > 0 && open ? (
                       <span className="whitespace-nowrap rounded-full bg-warn-soft px-2.5 py-0.5 text-xs font-semibold text-warn">
-                        Ditunda {t.defer_count}×
+                        {dict.staff.deferred(row.defer_count)}
                       </span>
                     ) : null}
                   </div>
                 </td>
                 <td className="whitespace-nowrap px-5 py-3 text-right tabular-nums">
-                  {t.status === "waiting" && t.estimated_call_at ? (
+                  {row.status === "waiting" && row.estimated_call_at ? (
                     <>
-                      <span className="font-semibold">{formatClinicTime(t.estimated_call_at)}</span>
-                      <span className="block text-xs text-muted">±{minutesUntil(t.estimated_call_at)} mnt</span>
+                      <span className="font-semibold">{formatClinicTime(row.estimated_call_at, locale)}</span>
+                      <span className="block text-xs text-muted">{dict.common.min(minutesUntil(row.estimated_call_at) ?? 0)}</span>
                     </>
                   ) : (
                     "–"
@@ -105,9 +121,9 @@ function QueueTable({ prefix, rows, muted = false }: { prefix: string; rows: Row
                   {open ? (
                     <div className="flex justify-end gap-2">
                       {notArrived ? (
-                        <ActionButton action={checkIn.bind(null, t.id)} label="Tandai tiba" size="sm" variant="secondary" />
+                        <ActionButton action={checkIn.bind(null, row.id)} label={t.checkIn} size="sm" variant="secondary" />
                       ) : null}
-                      <ActionButton action={cancelTicket.bind(null, t.id)} label="Batalkan" size="sm" variant="danger" />
+                      <ActionButton action={cancelTicket.bind(null, row.id)} label={t.cancel} size="sm" variant="danger" />
                     </div>
                   ) : null}
                 </td>
@@ -124,6 +140,9 @@ export default async function ReceptionPage() {
   const staff = await requireStaff("receptionist");
   const supabase = await createClient();
   const today = clinicToday();
+  const locale = await getLocale();
+  const dict = await getDictionary();
+  const t = dict.reception;
 
   const [{ data: doctors }, { data: rawTickets, error }, { data: phones }] = await Promise.all([
     supabase
@@ -147,17 +166,17 @@ export default async function ReceptionPage() {
     ...t,
     patients: t.patients ? { full_name: t.patients.full_name, phone: phoneOf.get(t.patient_id) ?? null } : null,
   }));
-  const hours = new Map((doctors ?? []).map((d) => [d.id, doctorAvailability(d)]));
+  const hours = new Map((doctors ?? []).map((d) => [d.id, doctorAvailability(d, locale)]));
 
   return (
     <>
       <StaffHeader staff={staff} href="/reception" />
       <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
-        <PageTitle title="Antrean hari ini" sub={formatClinicDate(today)} aside={<LiveRefresh serviceDate={today} />} />
+        <PageTitle title={t.title} sub={formatClinicDate(today, locale)} aside={<LiveRefresh serviceDate={today} />} />
 
         {error ? (
           <p role="alert" className="rounded-[10px] bg-danger-soft px-4 py-3 text-sm text-danger">
-            Antrean gagal dimuat. Muat ulang halaman.
+            {dict.common.loadError}
           </p>
         ) : null}
 
@@ -204,23 +223,23 @@ export default async function ReceptionPage() {
                       </div>
                     </div>
                     <p className="text-sm text-muted">
-                      <strong className="font-semibold tabular-nums text-ink">{waiting}</strong> menunggu
+                      <strong className="font-semibold tabular-nums text-ink">{waiting}</strong> {t.waiting}
                     </p>
                   </div>
 
                   {active.length ? (
-                    <QueueTable prefix={doctor.ticket_prefix} rows={active} />
+                    <QueueTable prefix={doctor.ticket_prefix} rows={active} dict={dict} locale={locale} />
                   ) : (
-                    <p className="px-5 py-8 text-center text-sm text-muted">Tidak ada antrean aktif.</p>
+                    <p className="px-5 py-8 text-center text-sm text-muted">{t.noActive}</p>
                   )}
 
                   {closed.length ? (
                     <details className="group border-t border-line-soft">
                       <summary className="flex min-h-[48px] cursor-pointer list-none items-center justify-between px-5 text-sm font-semibold text-muted hover:text-ink [&::-webkit-details-marker]:hidden">
-                        Selesai & batal · {closed.length}
+                        {t.closedSummary(closed.length)}
                         <ChevronDownIcon size={16} className="transition-transform group-open:rotate-180" />
                       </summary>
-                      <QueueTable prefix={doctor.ticket_prefix} rows={closed} muted />
+                      <QueueTable prefix={doctor.ticket_prefix} rows={closed} muted dict={dict} locale={locale} />
                     </details>
                   ) : null}
                 </section>

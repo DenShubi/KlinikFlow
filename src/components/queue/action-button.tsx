@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 
+import { useT } from "@/components/i18n/provider";
 import type { ActionResult } from "@/lib/queue/actions";
 
 const VARIANTS = {
@@ -22,7 +23,7 @@ const SIZES = {
 export function ActionButton({
   action,
   label,
-  pendingLabel = "Memproses…",
+  pendingLabel,
   variant = "primary",
   size = "md",
   className = "",
@@ -36,6 +37,7 @@ export function ActionButton({
   className?: string;
   disabled?: boolean;
 }) {
+  const t = useT();
   const [state, formAction, pending] = useActionState<ActionResult>(() => action(), { ok: true });
 
   return (
@@ -46,7 +48,7 @@ export function ActionButton({
         aria-busy={pending}
         className={`btn w-full ${VARIANTS[variant]} ${SIZES[size]}`}
       >
-        {pending ? pendingLabel : label}
+        {pending ? (pendingLabel ?? t.common.processing) : label}
       </button>
       {!state.ok && state.error ? (
         <span role="alert" className="text-xs font-medium text-danger">
